@@ -38,7 +38,8 @@ const OceanTest: React.FC = () => {
         setStartTime(new Date())
       } catch (error) {
         console.error('Failed to fetch OCEAN questions:', error)
-        setError('Failed to load personality test. Please try again.')
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        setError(`Failed to load personality test: ${message}`)
       } finally {
         setLoading(false)
       }

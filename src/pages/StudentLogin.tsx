@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, User, Lock } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { LoginResponse } from '../services/types'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ErrorMessage from '../components/common/ErrorMessage'
 
@@ -30,16 +29,9 @@ const StudentLogin: React.FC = () => {
     e.preventDefault()
 
     try {
-      const response: LoginResponse = await login(formData)
-      
-      // Check if holistic profile is completed
-      // If not completed, redirect to holistic profile page
-      if (response?.user?.holisticProfileCompleted === false) {
-        navigate('/holistic-profile', { replace: true })
-      } else {
-        // Redirect to intended destination or dashboard
-        navigate(from, { replace: true })
-      }
+      await login(formData)
+      // Redirect to intended destination or dashboard
+      navigate(from, { replace: true })
     } catch (error) {
       // Error is already handled in AuthContext
       console.error('Login failed:', error)

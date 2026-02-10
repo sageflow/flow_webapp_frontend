@@ -34,7 +34,8 @@ const AssessmentPage: React.FC = () => {
         }
       } catch (error) {
         console.error('Failed to fetch test:', error)
-        setError('Failed to load test. Please try again.')
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        setError(`Failed to load test: ${message}`)
       } finally {
         setLoading(false)
       }

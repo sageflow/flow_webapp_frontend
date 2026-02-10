@@ -4,13 +4,13 @@ import { LoginRequest, LoginResponse, StudentSignupRequest, TeacherSignupRequest
 class AuthService extends BaseApiService {
   // Authentication APIs
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    // Clear any existing token before login to avoid sending invalid tokens
+    // Clear any existing token before login
     this.clearToken();
     
     const response = await this.request<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
-    });
+    }, { skipAuth: true });
     
     if (response.token) {
       this.setToken(response.token);
@@ -32,33 +32,33 @@ class AuthService extends BaseApiService {
     }
   }
 
-  // User Signup APIs
+  // User Signup APIs – skipAuth ensures no stale JWT is sent
   async studentSignup(data: StudentSignupRequest): Promise<any> {
     return this.request('/auth/signup/student', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, { skipAuth: true });
   }
 
   async teacherSignup(data: TeacherSignupRequest): Promise<any> {
     return this.request('/auth/signup/teacher', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, { skipAuth: true });
   }
 
   async guardianSignup(data: GuardianSignupRequest): Promise<any> {
     return this.request('/auth/signup/guardian', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, { skipAuth: true });
   }
 
   async psychologistSignup(data: PsychologistSignupRequest): Promise<any> {
     return this.request('/auth/signup/psychologist', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, { skipAuth: true });
   }
 }
 

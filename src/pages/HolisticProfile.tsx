@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Brain, CheckCircle, Bed, Utensils, Dumbbell, Monitor, Eye, AlertCircle } from 'lucide-react'
 import { apiService } from '../services/api'
 import { 
@@ -26,7 +26,8 @@ import {
 import { getConstantOptions, hobbyDisplayNameToEnum, professionDisplayNameToEnum, hobbyEnumToDisplayName, professionEnumToDisplayName } from '../utils'
 
 const HolisticProfile: React.FC = () => {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
+  const navigate = useNavigate()
 
   
   const [formData, setFormData] = useState<{
@@ -140,6 +141,22 @@ const HolisticProfile: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [hasExistingPhysicalProfile, setHasExistingPhysicalProfile] = useState(false)
+
+  // Track existing habit record IDs for today (null = no record exists, use CREATE; number = exists, use UPDATE)
+  const [existingHabitIds, setExistingHabitIds] = useState<{
+    sleep: number | null
+    diet: number | null
+    exercise: number | null
+    screenTime: number | null
+    mediaConsumption: number | null
+  }>({
+    sleep: null,
+    diet: null,
+    exercise: null,
+    screenTime: null,
+    mediaConsumption: null,
+  })
 
   // Dynamic data from API
   const [hobbies, setHobbies] = useState<string[]>([])
@@ -158,9 +175,10 @@ const HolisticProfile: React.FC = () => {
         setProfessions(professionsData);
 
         // Load existing student interests if user is authenticated
-        if (user?.id) {
+        const studentId = user?.id ? (typeof user.id === 'number' ? user.id : Number(user.id)) : null
+        if (studentId && !isNaN(studentId)) {
           try {
-            const existingInterest = await apiService.getStudentInterest(user.id);
+            const existingInterest = await apiService.getStudentInterest(studentId);
             if (existingInterest) {
               // Convert enum names back to display names for display
               // The API returns enum names (like "SOCCER"), but form stores display names (like "Soccer ⚽")
@@ -186,8 +204,9 @@ const HolisticProfile: React.FC = () => {
 
           // Load existing physical profile
           try {
-            const existingPhysicalProfile = await apiService.getPhysicalProfileByStudentId(user.id);
+            const existingPhysicalProfile = await apiService.getPhysicalProfileByStudentId(studentId);
             if (existingPhysicalProfile) {
+              setHasExistingPhysicalProfile(true);
               setFormData(prev => ({
                 ...prev,
                 accessibility: {
@@ -203,7 +222,93 @@ const HolisticProfile: React.FC = () => {
             }
           } catch (error) {
             // If no existing physical profile found, that's okay - user will create new one
+            setHasExistingPhysicalProfile(false);
             console.log('No existing physical profile found or error loading:', error);
+          }
+
+          // Load today's existing habits (to decide CREATE vs UPDATE on submit)
+          try {
+            const [todaySleep, todayDiet, todayExercise, todayScreenTime, todayMediaConsumption] = await Promise.all([
+              apiService.getTodaySleepHabits(studentId),
+              apiService.getTodayDietHabits(studentId),
+              apiService.getTodayExerciseHabits(studentId),
+              apiService.getTodayScreenTimeHabits(studentId),
+              apiService.getTodayMediaConsumptionHabits(studentId),
+            ]);
+
+            setExistingHabitIds({
+              sleep: todaySleep?.id ?? null,
+              diet: todayDiet?.id ?? null,
+              exercise: todayExercise?.id ?? null,
+              screenTime: todayScreenTime?.id ?? null,
+              mediaConsumption: todayMediaConsumption?.id ?? null,
+            });
+
+            // Pre-populate form with existing habit data
+            if (todaySleep) {
+              setFormData(prev => ({
+                ...prev,
+                sleep: {
+                  bedtime: todaySleep.bedtime || '',
+                  wakeTime: todaySleep.wakeTime || '',
+                  sleepQualityScore: todaySleep.sleepQualityScore ?? 3,
+                  totalSleepHours: todaySleep.totalSleepHours ?? 8,
+                  notes: todaySleep.notes || '',
+                }
+              }));
+            }
+            if (todayDiet) {
+              setFormData(prev => ({
+                ...prev,
+                diet: {
+                  waterIntakeMl: todayDiet.waterIntakeMl ?? 2000,
+                  junkFoodFrequency: todayDiet.junkFoodFrequency ?? 1,
+                  mealsConsumed: todayDiet.mealsConsumed ?? 3,
+                  notes: todayDiet.notes || '',
+                }
+              }));
+            }
+            if (todayExercise) {
+              setFormData(prev => ({
+                ...prev,
+                exercise: {
+                  exerciseHours: todayExercise.exerciseHours ?? 1,
+                  exerciseType: todayExercise.exerciseType || '',
+                  intensityLevel: todayExercise.intensityLevel || 'MODERATE',
+                  caloriesBurned: todayExercise.caloriesBurned ?? 200,
+                  notes: todayExercise.notes || '',
+                }
+              }));
+            }
+            if (todayScreenTime) {
+              setFormData(prev => ({
+                ...prev,
+                screen: {
+                  totalScreenTimeHours: todayScreenTime.totalScreenTimeHours ?? 3,
+                  preSleepScreenTimeMinutes: todayScreenTime.preSleepScreenTimeMinutes ?? 30,
+                  deviceType: todayScreenTime.deviceType || 'MOBILE',
+                  screenTimeBeforeBed: todayScreenTime.screenTimeBeforeBed ?? true,
+                  blueLightFilterUsed: todayScreenTime.blueLightFilterUsed ?? false,
+                  notes: todayScreenTime.notes || '',
+                }
+              }));
+            }
+            if (todayMediaConsumption) {
+              setFormData(prev => ({
+                ...prev,
+                media: {
+                  platform: todayMediaConsumption.platform || 'YOUTUBE',
+                  contentType: todayMediaConsumption.contentType || '',
+                  durationMinutes: todayMediaConsumption.durationMinutes ?? 60,
+                  contentCategory: todayMediaConsumption.contentCategory || '',
+                  isEducational: todayMediaConsumption.isEducational ?? true,
+                  ageAppropriate: todayMediaConsumption.ageAppropriate ?? true,
+                  notes: todayMediaConsumption.notes || '',
+                }
+              }));
+            }
+          } catch (error) {
+            console.log('Could not load existing habits for today:', error);
           }
         }
       } catch (error) {
@@ -268,19 +373,33 @@ const HolisticProfile: React.FC = () => {
     setIsLoading(true)
 
     try {
-      if (!user?.id) {
-        throw new Error('User not authenticated')
-      }
-
-      // Validate physical profile required fields
-      if (!formData.medicalCondition || formData.medicalCondition.trim() === '') {
-        setError('Please select a medical condition')
-        setCurrentStep(3) // Go to step 3 to show the error
+      // 1. Verify authentication
+      if (!user) {
+        setError('You are not logged in. Please sign in and try again.')
         setIsLoading(false)
         return
       }
 
-      // Validate body weight if provided
+      // Resolve the numeric studentId from user.id
+      // user.id may be a number (from login response) or need conversion
+      const rawId = user.id
+      const studentId = typeof rawId === 'number' ? rawId : Number(rawId)
+      
+      if (!studentId || isNaN(studentId) || studentId <= 0) {
+        console.error('[HolisticProfile] Cannot resolve numeric student ID. user:', JSON.stringify(user))
+        setError(`Unable to identify your account (id: ${rawId}). Please sign out and sign in again.`)
+        setIsLoading(false)
+        return
+      }
+
+      // 2. Validate physical profile required fields
+      if (!formData.medicalCondition || formData.medicalCondition.trim() === '') {
+        setError('Please select a medical condition')
+        setCurrentStep(3)
+        setIsLoading(false)
+        return
+      }
+
       if (formData.bodyWeightKg && formData.bodyWeightKg.trim() !== '') {
         const weight = parseFloat(formData.bodyWeightKg)
         if (isNaN(weight) || weight < 0 || weight > 500) {
@@ -291,7 +410,6 @@ const HolisticProfile: React.FC = () => {
         }
       }
 
-      // Validate height if provided
       if (formData.heightFeet && formData.heightFeet.trim() !== '') {
         const feet = parseInt(formData.heightFeet, 10)
         if (isNaN(feet) || feet < 0 || feet > 10) {
@@ -312,7 +430,6 @@ const HolisticProfile: React.FC = () => {
         }
       }
 
-      // Validate medical condition notes length
       if (formData.medicalConditionNotes && formData.medicalConditionNotes.length > 1000) {
         setError('Medical condition notes cannot exceed 1000 characters')
         setCurrentStep(3)
@@ -322,9 +439,9 @@ const HolisticProfile: React.FC = () => {
 
       const today = new Date().toISOString().split('T')[0]
 
-      // Save interests to backend - convert display names to enum names
+      // 3. Save interests
       const interestData: StudentInterestDTO = {
-        studentId: user.id,
+        studentId,
         hobbies: formData.hobbies.map(hobby => hobbyDisplayNameToEnum(hobby)),
         professions: formData.aspirations.map(profession => professionDisplayNameToEnum(profession)),
         accolades: formData.achievements
@@ -332,9 +449,9 @@ const HolisticProfile: React.FC = () => {
 
       await apiService.createStudentInterest(interestData)
       
-      // Save habits data using the new API
+      // 4. Save habits data
       const sleepHabits: SleepHabitsRequest = {
-        studentId: user.id,
+        studentId,
         date: today,
         bedtime: formData.sleep.bedtime,
         wakeTime: formData.sleep.wakeTime,
@@ -344,7 +461,7 @@ const HolisticProfile: React.FC = () => {
       }
 
       const dietHabits: DietHabitsRequest = {
-        studentId: user.id,
+        studentId,
         date: today,
         waterIntakeMl: formData.diet.waterIntakeMl,
         junkFoodFrequency: formData.diet.junkFoodFrequency,
@@ -353,7 +470,7 @@ const HolisticProfile: React.FC = () => {
       }
 
       const exerciseHabits: ExerciseHabitsRequest = {
-        studentId: user.id,
+        studentId,
         date: today,
         exerciseHours: formData.exercise.exerciseHours,
         exerciseType: formData.exercise.exerciseType || undefined,
@@ -363,7 +480,7 @@ const HolisticProfile: React.FC = () => {
       }
 
       const screenTimeHabits: ScreenTimeRequest = {
-        studentId: user.id,
+        studentId,
         date: today,
         totalScreenTimeHours: formData.screen.totalScreenTimeHours,
         preSleepScreenTimeMinutes: formData.screen.preSleepScreenTimeMinutes,
@@ -374,7 +491,7 @@ const HolisticProfile: React.FC = () => {
       }
 
       const mediaConsumptionHabits: MediaConsumptionRequest = {
-        studentId: user.id,
+        studentId,
         date: today,
         platform: formData.media.platform,
         contentType: formData.media.contentType,
@@ -385,18 +502,28 @@ const HolisticProfile: React.FC = () => {
         notes: formData.media.notes || undefined
       }
 
-      // Save all habits data
+      // Use UPDATE if today's record already exists, otherwise CREATE
       await Promise.all([
-        apiService.createSleepHabits(sleepHabits),
-        apiService.createDietHabits(dietHabits),
-        apiService.createExerciseHabits(exerciseHabits),
-        apiService.createScreenTimeHabits(screenTimeHabits),
-        apiService.createMediaConsumptionHabits(mediaConsumptionHabits)
+        existingHabitIds.sleep
+          ? apiService.updateSleepHabits(existingHabitIds.sleep, sleepHabits)
+          : apiService.createSleepHabits(sleepHabits),
+        existingHabitIds.diet
+          ? apiService.updateDietHabits(existingHabitIds.diet, dietHabits)
+          : apiService.createDietHabits(dietHabits),
+        existingHabitIds.exercise
+          ? apiService.updateExerciseHabits(existingHabitIds.exercise, exerciseHabits)
+          : apiService.createExerciseHabits(exerciseHabits),
+        existingHabitIds.screenTime
+          ? apiService.updateScreenTimeHabits(existingHabitIds.screenTime, screenTimeHabits)
+          : apiService.createScreenTimeHabits(screenTimeHabits),
+        existingHabitIds.mediaConsumption
+          ? apiService.updateMediaConsumptionHabits(existingHabitIds.mediaConsumption, mediaConsumptionHabits)
+          : apiService.createMediaConsumptionHabits(mediaConsumptionHabits),
       ])
 
-      // Save or update physical profile
+      // 5. Save or update physical profile
       const physicalProfile: PhysicalProfileRequest = {
-        studentId: user.id,
+        studentId,
         textToSpeechNeeded: formData.accessibility.textToSpeech,
         motorSupportNeeded: formData.accessibility.motorSupport,
         bodyWeightKg: formData.bodyWeightKg && formData.bodyWeightKg.trim() !== '' 
@@ -414,18 +541,40 @@ const HolisticProfile: React.FC = () => {
           : undefined
       }
 
-      // Try to update existing profile first, if that fails, create new one
-      try {
-        await apiService.updatePhysicalProfileByStudentId(user.id, physicalProfile)
-      } catch (error) {
-        // If update fails (profile doesn't exist), create new one
+      console.log('[HolisticProfile] Physical profile submission:', {
+        hasExistingPhysicalProfile,
+        studentId,
+        action: hasExistingPhysicalProfile ? 'UPDATE' : 'CREATE',
+        payload: physicalProfile,
+      })
+
+      if (hasExistingPhysicalProfile) {
+        console.log('[HolisticProfile] Calling PUT /profile/physical/student/' + studentId)
+        await apiService.updatePhysicalProfileByStudentId(studentId, physicalProfile)
+      } else {
+        console.log('[HolisticProfile] Calling POST /profile/physical')
         await apiService.createPhysicalProfile(physicalProfile)
       }
       
-      console.log('Holistic profile submitted successfully:', formData)
+      console.log('Holistic profile submitted successfully')
+      
+      // Update auth context to reflect profile completion
+      updateUser({ holisticProfileCompleted: true })
       
       setIsSubmitted(true)
     } catch (error: unknown) {
+      console.error('Profile submission error:', error)
+      
+      const status = (error as any)?.status
+      if (status === 401) {
+        setError('Your session has expired. Please sign out and sign in again.')
+        return
+      }
+      if (status === 403) {
+        setError('You do not have permission to save the physical profile. Please contact your administrator to grant access.')
+        return
+      }
+      
       const errorMessage = error instanceof Error ? error.message : 'Failed to save profile. Please try again.'
       setError(errorMessage)
     } finally {
@@ -1092,9 +1241,12 @@ const HolisticProfile: React.FC = () => {
                 Your holistic profile has been saved. We'll use this information to provide personalized support and recommendations.
               </p>
               <div className="space-y-4">
-                <Link to="/dashboard" className="btn-primary w-full">
+                <button
+                  onClick={() => navigate('/dashboard', { replace: true })}
+                  className="btn-primary w-full"
+                >
                   Go to Dashboard
-                </Link>
+                </button>
                 <p className="text-sm text-label">
                   You can update your profile anytime from your dashboard
                 </p>

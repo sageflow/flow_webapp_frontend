@@ -124,6 +124,25 @@ class ApiService extends BaseApiService {
     return this.createStudentInterest(studentInterestDTO);
   }
 
+  // Physical Profile Management
+  async createPhysicalProfile(data: PhysicalProfileRequest): Promise<PhysicalProfileResponse> {
+    return this.request('/profile/physical', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getPhysicalProfileByStudentId(studentId: number): Promise<PhysicalProfileResponse> {
+    return this.request(`/profile/physical/student/${studentId}`);
+  }
+
+  async updatePhysicalProfileByStudentId(studentId: number, data: PhysicalProfileRequest): Promise<PhysicalProfileResponse> {
+    return this.request(`/profile/physical/student/${studentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Assessment Management
   async getAssessments(): Promise<Assessment[]> {
     return this.request('/assessments');

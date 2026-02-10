@@ -24,19 +24,37 @@ const WeeklyPulseCheck: React.FC = () => {
         setLoading(true)
         
         // Check if user can submit
-        const canSubmitResult = await apiService.canSubmitPulse()
-        setCanSubmit(canSubmitResult)
+        // 403 = user is not a student (e.g. admin/teacher) → treat as "cannot submit"
+        try {
+          const canSubmitResult = await apiService.canSubmitPulse()
+          setCanSubmit(canSubmitResult)
+        } catch (err: any) {
+          const status = err?.status
+          if (status === 403) {
+            // Non-student user – they simply can't submit pulses
+            setCanSubmit(false)
+          } else {
+            throw err // re-throw unexpected errors
+          }
+        }
 
         // Try to get current week's pulse
+        // 404 = no pulse submitted this week (normal)
+        // 403 = non-student user (already handled above, just skip)
         try {
           const pulse = await apiService.getCurrentWeekPulse()
           setCurrentPulse(pulse)
           if (pulse?.rating) {
             setRating(pulse.rating)
           }
-        } catch (error) {
-          // No current pulse found, that's okay
-          console.log('No current pulse found')
+        } catch (err: any) {
+          const status = err?.status
+          if (status === 404 || status === 403) {
+            // No pulse for this week or not a student – that's okay
+            console.log('No current pulse found')
+          } else {
+            throw err
+          }
         }
       } catch (error) {
         console.error('Failed to fetch pulse check data:', error)

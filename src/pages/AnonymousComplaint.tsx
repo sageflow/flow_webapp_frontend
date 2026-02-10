@@ -27,6 +27,7 @@ const AnonymousComplaint: React.FC = () => {
   const [selectedStudents, setSelectedStudents] = useState<StudentAutocompleteDTO[]>([])
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
   const searchContainerRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown when clicking outside
@@ -46,18 +47,27 @@ const AnonymousComplaint: React.FC = () => {
     if (!query.trim() || query.trim().length < 2) {
       setSearchResults([])
       setShowSearchResults(false)
+      setSearchError('')
       return
     }
 
     try {
       setIsSearching(true)
+      setSearchError('')
       const response = await apiService.studentAutocomplete(query.trim(), 10)
-      setSearchResults(response.results)
-      setShowSearchResults(true) // Show dropdown even if no results (for "no results" message)
-    } catch (error) {
+      setSearchResults(response?.results ?? [])
+      setShowSearchResults(true)
+    } catch (error: unknown) {
       console.error('Failed to search students:', error)
       setSearchResults([])
-      setShowSearchResults(true) // Show "no results" message on error too
+      setShowSearchResults(true)
+      // Surface meaningful error instead of silently showing "no results"
+      const status = (error as any)?.status
+      if (status === 401 || status === 403) {
+        setSearchError('You do not have permission to search students. Please contact an administrator.')
+      } else {
+        setSearchError('Failed to search students. Please try again.')
+      }
     } finally {
       setIsSearching(false)
     }
@@ -345,8 +355,15 @@ const AnonymousComplaint: React.FC = () => {
                       </div>
                     )}
 
-                    {/* No Results Message */}
-                    {searchQuery.trim().length >= 2 && !isSearching && searchResults.length === 0 && (
+                    {/* Search Error Message */}
+                    {showSearchResults && searchError && !isSearching && (
+                      <div className="absolute top-full left-0 right-0 bg-white border border-red-200 rounded-input shadow-lg z-10 p-4 mt-1">
+                        <p className="text-sm text-red-600 text-center">{searchError}</p>
+                      </div>
+                    )}
+
+                    {/* No Results Message (only after a search completes, not before) */}
+                    {showSearchResults && !searchError && searchQuery.trim().length >= 2 && !isSearching && searchResults.length === 0 && (
                       <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-input shadow-lg z-10 p-4 mt-1">
                         <p className="text-sm text-label text-center">No students found matching "{searchQuery}"</p>
                       </div>

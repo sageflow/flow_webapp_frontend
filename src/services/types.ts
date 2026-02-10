@@ -5,13 +5,10 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
+  id: number;
   token: string;
-  user: {
-    id: number;
-    username: string;
-    role: string;
-    holisticProfileCompleted?: boolean;
-  };
+  username: string;
+  role: string;
 }
 
 export interface StudentSignupRequest {

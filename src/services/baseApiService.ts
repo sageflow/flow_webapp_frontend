@@ -13,8 +13,8 @@ export class BaseApiService {
     return localStorage.getItem(AUTH_CONSTANTS.TOKEN_KEY);
   }
 
-  // Clear token on logout
-  protected clearToken() {
+  // Clear token (public so AuthContext can call it on expired tokens)
+  public clearToken() {
     localStorage.removeItem(AUTH_CONSTANTS.TOKEN_KEY);
   }
 
@@ -32,15 +32,25 @@ export class BaseApiService {
     return headers;
   }
 
+  // Custom error class to preserve HTTP status code
+  private createApiError(message: string, status?: number): Error {
+    const error = new Error(message);
+    (error as any).status = status;
+    return error;
+  }
+
   // Generic request method with retry logic and better error handling
+  // Set skipAuth to true for public endpoints (e.g. signup) that must never
+  // send an Authorization header – even when a stale JWT sits in localStorage.
   protected async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    { skipAuth = false }: { skipAuth?: boolean } = {}
   ): Promise<T> {
     const url = `${API_CONFIG.BASE_URL}${endpoint}`;
     const config: RequestInit = {
       ...options,
-      headers: this.getHeaders(),
+      headers: skipAuth ? { 'Content-Type': 'application/json' } : this.getHeaders(),
     };
 
     let lastError: Error | null = null;
@@ -59,7 +69,11 @@ export class BaseApiService {
 
         if (!response.ok) {
           const errorData = await this.parseErrorResponse(response);
-          throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+          const message = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+
+          // Attach the HTTP status to the error for downstream handling
+          // (e.g., components can check status to redirect on 401)
+          throw this.createApiError(message, response.status);
         }
 
         // Handle empty responses
@@ -72,8 +86,9 @@ export class BaseApiService {
       } catch (error) {
         lastError = error as Error;
         
-        // Don't retry on client errors (4xx)
-        if (error instanceof Error && error.message.includes('HTTP 4')) {
+        // Don't retry on client errors (4xx) - check status code, not message text
+        const status = (error as any)?.status;
+        if (status && status >= 400 && status < 500) {
           break;
         }
 
@@ -90,8 +105,10 @@ export class BaseApiService {
     }
 
     // If we get here, all retries failed
+    // Preserve the HTTP status code from the original error so callers can
+    // branch on specific status codes (e.g. 403 Forbidden, 404 Not Found).
     const errorMessage = handleError(lastError, `API request to ${endpoint}`);
-    throw new Error(errorMessage);
+    throw this.createApiError(errorMessage, (lastError as any)?.status);
   }
 
   // Parse error response from API
