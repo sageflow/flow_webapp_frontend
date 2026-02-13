@@ -17,8 +17,11 @@ module.exports = {
         label: '#828282',
       },
       fontFamily: {
-        'montserrat': ['Montserrat', 'sans-serif'],
-        'opensans': ['Open Sans', 'sans-serif'],
+        'jakarta': ['Plus Jakarta Sans', 'sans-serif'],
+        'inter': ['Inter', 'sans-serif'],
+        /* Legacy aliases: existing font-montserrat/font-opensans classes now use new typefaces */
+        'montserrat': ['Plus Jakarta Sans', 'sans-serif'],
+        'opensans': ['Inter', 'sans-serif'],
       },
       fontSize: {
         'h1': ['28px', { lineHeight: '36px', fontWeight: '700' }],

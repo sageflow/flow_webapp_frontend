@@ -1,33 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   html {
-    font-family: 'Open Sans', system-ui, sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Montserrat', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-action text-white font-montserrat font-semibold px-6 py-3 rounded-button hover:bg-opacity-90 transition-all duration-200;
+    @apply bg-action text-white font-jakarta font-semibold px-6 py-3 rounded-button hover:bg-opacity-90 transition-all duration-200;
   }
   
   .btn-secondary {
-    @apply bg-accent text-white font-montserrat font-semibold px-6 py-3 rounded-button hover:bg-opacity-90 transition-all duration-200;
+    @apply bg-accent text-white font-jakarta font-semibold px-6 py-3 rounded-button hover:bg-opacity-90 transition-all duration-200;
   }
   
   .btn-outline {
-    @apply border-2 border-primary text-primary font-montserrat font-semibold px-6 py-3 rounded-button hover:bg-primary hover:text-white transition-all duration-200;
+    @apply border-2 border-primary text-primary font-jakarta font-semibold px-6 py-3 rounded-button hover:bg-primary hover:text-white transition-all duration-200;
   }
   
   .input-field {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-input focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 font-opensans text-body;
+    @apply w-full px-4 py-3 border border-gray-300 rounded-input focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 font-inter text-body;
   }
   
   .card {

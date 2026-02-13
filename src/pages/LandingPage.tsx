@@ -31,10 +31,10 @@ const RoleCard: React.FC<RoleCardProps> = ({ icon, iconBgColor, title, descripti
 const LandingPage: React.FC = () => {
   const roles = [
     {
-      icon: <GraduationCap className="w-7 h-7 text-primary" />,
-      iconBgColor: 'bg-blue-50',
+      icon: <GraduationCap className="w-7 h-7 text-[#5f269e]" />,
+      iconBgColor: 'bg-purple-50',
       title: 'I am a Student',
-      description: 'Track your mood & progress',
+      description: 'Track your progress',
       to: '/login/student'
     },
     {
@@ -61,29 +61,37 @@ const LandingPage: React.FC = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30 flex items-center justify-center p-6">
-      <div className="max-w-6xl w-full flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
+    <div className="min-h-screen bg-white flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Subtle purple radial glow behind left content */}
+      <div
+        className="absolute left-0 top-1/2 -translate-y-1/2 w-[600px] h-[600px] -translate-x-1/3 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 80% 80% at 30% 50%, rgba(95, 38, 158, 0.06) 0%, transparent 70%)',
+        }}
+      />
+      <div className="max-w-6xl w-full flex flex-col lg:flex-row items-center gap-16 lg:gap-24 relative z-10">
         {/* Left Side - Branding */}
         <div className="flex-1 text-center lg:text-left">
           {/* Logo */}
           <div className="flex items-center justify-center lg:justify-start gap-3 mb-12">
-            <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-accent/20 rounded-full flex items-center justify-center border-2 border-accent/30">
-              <div className="w-6 h-6 border-2 border-accent rounded-full flex items-center justify-center">
-                <div className="w-2 h-2 bg-accent rounded-full" />
-              </div>
-            </div>
-            <span className="text-2xl font-montserrat font-bold text-heading">SageFlow</span>
+            <img
+              src="/logo.png"
+              alt="SageFlow"
+              className="w-16 h-16 object-contain"
+            />
+            <span className="text-2xl md:text-3xl font-montserrat font-bold text-heading">SageFlow</span>
           </div>
 
-          {/* Main Heading */}
-          <h1 className="text-4xl md:text-5xl lg:text-[52px] font-montserrat font-bold text-heading leading-tight mb-6">
-            Growth starts<br />with reflection.
-          </h1>
-
-          {/* Subtitle */}
-          <p className="text-lg text-body max-w-md mx-auto lg:mx-0">
-            Empowering students to build healthy habits and mental wellness.
-          </p>
+          {/* Tagline - multi-line, second half in purple */}
+          <h2 className="text-3xl md:text-4xl font-montserrat font-bold text-heading leading-tight max-w-md mx-auto lg:mx-0">
+            <span className="block">Empowering</span>
+            <span className="block">students to build</span>
+            <span className="block">
+              <span className="font-bold text-[#5f269e]">healthy habits</span>
+              <span className="font-bold text-heading"> and</span>
+            </span>
+            <span className="block font-bold text-[#5f269e]">mental wellness.</span>
+          </h2>
         </div>
 
         {/* Right Side - Role Selection */}
@@ -107,13 +115,6 @@ const LandingPage: React.FC = () => {
             ))}
           </div>
 
-          {/* Sign In Link */}
-          <p className="text-center text-sm text-body mt-8">
-            Already have an account?{' '}
-            <Link to="/signin" className="text-primary font-semibold hover:underline">
-              Sign in
-            </Link>
-          </p>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, User, Lock } from 'lucide-react'
+import { ArrowLeft, User, Lock, Brain } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ErrorMessage from '../components/common/ErrorMessage'
@@ -42,11 +42,11 @@ const PsychologistLogin: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-amber-50/30 flex flex-col">
       {/* Back Button */}
       <div className="p-6">
-        <Link 
-          to="/" 
-          className="inline-flex items-center text-primary hover:text-primary/80 transition-colors text-sm font-medium"
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[#5f269e] bg-[#5f269e]/10 hover:bg-[#5f269e]/20 border border-[#5f269e]/20 hover:border-[#5f269e]/30 transition-all duration-200 text-sm font-semibold font-jakarta"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
+          <ArrowLeft className="w-4 h-4" />
           Back
         </Link>
       </div>
@@ -58,22 +58,15 @@ const PsychologistLogin: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-soft p-8">
             {/* Logo */}
             <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-accent/10 rounded-full flex items-center justify-center border-2 border-accent/40">
-                <div className="w-10 h-10 border-3 border-accent rounded-full flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-accent rounded-full flex items-center justify-center">
-                    <div className="w-2 h-2 bg-accent rounded-full" />
-                  </div>
-                </div>
+              <div className="w-14 h-14 bg-amber-50 rounded-xl flex items-center justify-center">
+                <Brain className="w-7 h-7 text-amber-500" />
               </div>
             </div>
 
             {/* Title */}
-            <h1 className="text-3xl font-montserrat font-bold text-heading text-center mb-2">
-              Psychologist Portal
+            <h1 className="text-3xl font-montserrat font-bold text-heading text-center mb-8">
+              Psychologist Login
             </h1>
-            <p className="text-body text-center mb-8">
-              Sign in to manage sessions & students
-            </p>
 
             {/* Error Message */}
             {error && (
@@ -136,19 +129,19 @@ const PsychologistLogin: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-primary hover:bg-primary/90 text-white font-montserrat font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mt-6"
+                className="w-full bg-[#5f269e] hover:bg-[#5f269e]/90 text-white font-montserrat font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mt-6"
               >
                 {loading ? (
                   <LoadingSpinner size="sm" color="white" />
                 ) : (
-                  'Sign In to Dashboard'
+                  'Login'
                 )}
               </button>
             </form>
 
             {/* Sign Up Link */}
             <p className="text-center text-sm text-body mt-6">
-              Not a user?{' '}
+              Not a Psychologist?{' '}
               <Link to="/signup/psychologist" className="text-primary font-semibold hover:underline">
                 Sign up
               </Link>
