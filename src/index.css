@@ -6,8 +6,13 @@
   html {
     font-family: 'Inter', system-ui, sans-serif;
   }
-  
-  h1, h2, h3, h4, h5, h6 {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 }
@@ -16,20 +21,37 @@
   .btn-primary {
     @apply bg-action text-white font-jakarta font-semibold px-6 py-3 rounded-button hover:bg-opacity-90 transition-all duration-200;
   }
-  
+
   .btn-secondary {
     @apply bg-accent text-white font-jakarta font-semibold px-6 py-3 rounded-button hover:bg-opacity-90 transition-all duration-200;
   }
-  
+
   .btn-outline {
     @apply border-2 border-primary text-primary font-jakarta font-semibold px-6 py-3 rounded-button hover:bg-primary hover:text-white transition-all duration-200;
   }
-  
+
   .input-field {
     @apply w-full px-4 py-3 border border-gray-300 rounded-input focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 font-inter text-body;
   }
-  
+
   .card {
     @apply bg-white rounded-card shadow-soft p-6;
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 8px 32px 0 rgba(139, 92, 246, 0.12),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+    @apply rounded-2xl transition-all duration-300;
+  }
+
+  .glass-card:hover {
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 12px 40px 0 rgba(139, 92, 246, 0.2),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+    transform: translateY(-2px);
   }
 }
