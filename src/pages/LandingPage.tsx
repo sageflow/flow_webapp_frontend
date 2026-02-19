@@ -145,9 +145,10 @@ const LandingPage: React.FC = () => {
           {/* Logo */}
           <div className="flex items-center justify-center lg:justify-start gap-4 mb-12">
             <motion.div
-              whileHover={{ rotate: 360, scale: 1.1 }}
+              whileHover={{ rotateY: 360, scale: 1.1 }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
               className="p-1 relative"
+              style={{ transformPerspective: 600 }}
             >
               <motion.div
                 animate={{
