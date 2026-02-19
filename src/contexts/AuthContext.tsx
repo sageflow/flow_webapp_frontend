@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '../services/authService';
-import { LoginRequest, LoginResponse } from '../services/types';
+import { LoginRequest, LoginResponse, UserRole } from '../services/types';
 import { handleError } from '../utils';
 import { AUTH_CONSTANTS } from '../constants';
 
@@ -14,7 +14,7 @@ interface User {
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
-  login: (credentials: LoginRequest) => Promise<LoginResponse>;
+  login: (credentials: LoginRequest, role: UserRole) => Promise<LoginResponse>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
   loading: boolean;
@@ -133,11 +133,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const payload = JSON.parse(atob(token.split('.')[1]));
         const expiryTime = payload.exp * 1000;
         const currentTime = Date.now();
-        
+
         if (currentTime < expiryTime - AUTH_CONSTANTS.TOKEN_EXPIRY_BUFFER) {
           // Restore user data from localStorage (persisted during login)
           const persistedUser = getPersistedUser();
-          
+
           if (persistedUser && persistedUser.id && persistedUser.id > 0) {
             setUser(persistedUser);
             setIsAuthenticated(true);
@@ -165,12 +165,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (credentials: LoginRequest): Promise<LoginResponse> => {
+  const login = async (credentials: LoginRequest, role: UserRole): Promise<LoginResponse> => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response: LoginResponse = await authService.login(credentials);
+
+      const response: LoginResponse = await authService.login(credentials, role);
 
       // Debug: log the raw login response to understand backend data shape
       console.log('[Auth] Raw login response keys:', Object.keys(response));
@@ -188,7 +188,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.error('[Auth] Login succeeded but could not determine user info');
         setIsAuthenticated(true);
       }
-      
+
       return response;
     } catch (error) {
       const errorMessage = handleError(error, 'login');

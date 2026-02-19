@@ -3,6 +3,7 @@ import { authService } from './authService';
 import {
   LoginRequest,
   LoginResponse,
+  UserRole,
   StudentSignupRequest,
   TeacherSignupRequest,
   GuardianSignupRequest,
@@ -69,8 +70,8 @@ import {
 
 class ApiService extends BaseApiService {
   // Authentication APIs - delegate to authService
-  async login(credentials: LoginRequest): Promise<LoginResponse> {
-    return authService.login(credentials);
+  async login(credentials: LoginRequest, role: UserRole): Promise<LoginResponse> {
+    return authService.login(credentials, role);
   }
 
   async logout(): Promise<void> {

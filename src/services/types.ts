@@ -11,6 +11,8 @@ export interface LoginResponse {
   role: string;
 }
 
+export type UserRole = 'role_student' | 'role_parent' | 'role_teacher' | 'role_psychologist';
+
 export interface StudentSignupRequest {
   username: string;
   email: string;
@@ -622,7 +624,7 @@ export interface PhysicalProfileResponse {
 // Complaint Types
 
 // Issue Category enum matching backend
-export type IssueCategory = 
+export type IssueCategory =
   | 'BULLYING'
   | 'HARASSMENT'
   | 'DISCRIMINATION'
@@ -638,7 +640,7 @@ export type IssueCategory =
 export type SeverityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 // Complaint Status enum matching backend
-export type ComplaintStatus = 
+export type ComplaintStatus =
   | 'SUBMITTED'
   | 'UNDER_REVIEW'
   | 'INVESTIGATING'
