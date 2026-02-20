@@ -1,21 +1,21 @@
 import { BaseApiService } from './baseApiService';
-import { LoginRequest, LoginResponse, StudentSignupRequest, TeacherSignupRequest, GuardianSignupRequest, PsychologistSignupRequest } from './types';
+import { LoginRequest, LoginResponse, UserRole, StudentSignupRequest, TeacherSignupRequest, GuardianSignupRequest, PsychologistSignupRequest } from './types';
 
 class AuthService extends BaseApiService {
   // Authentication APIs
-  async login(credentials: LoginRequest): Promise<LoginResponse> {
+  async login(credentials: LoginRequest, role: UserRole): Promise<LoginResponse> {
     // Clear any existing token before login
     this.clearToken();
-    
-    const response = await this.request<LoginResponse>('/auth/login', {
+
+    const response = await this.request<LoginResponse>(`/auth/login/${role}`, {
       method: 'POST',
       body: JSON.stringify(credentials),
     }, { skipAuth: true });
-    
+
     if (response.token) {
       this.setToken(response.token);
     }
-    
+
     return response;
   }
 

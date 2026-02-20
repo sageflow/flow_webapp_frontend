@@ -33,7 +33,7 @@ const TeacherLogin: React.FC = () => {
     e.preventDefault()
 
     try {
-      await login(formData)
+      await login(formData, 'role_teacher')
       // Redirect to intended destination or dashboard
       navigate(from, { replace: true })
     } catch (error) {

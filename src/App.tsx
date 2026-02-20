@@ -1,5 +1,5 @@
 // React import removed as it's not needed in React 18+ with JSX transform
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import LandingPage from './pages/LandingPage'
@@ -7,7 +7,6 @@ import StudentSignup from './pages/StudentSignup'
 import TeacherSignup from './pages/TeacherSignup'
 import GuardianSignup from './pages/GuardianSignup'
 import PsychologistSignup from './pages/PsychologistSignup'
-import SignIn from './pages/SignIn'
 import StudentLogin from './pages/StudentLogin'
 import ParentLogin from './pages/ParentLogin'
 import TeacherLogin from './pages/TeacherLogin'
@@ -36,7 +35,7 @@ function App() {
         <div className="min-h-screen bg-gray-50">
           <Routes>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/signin" element={<SignIn />} />
+            <Route path="/signin" element={<Navigate to="/" replace />} />
             <Route path="/login/student" element={<StudentLogin />} />
             <Route path="/login/parent" element={<ParentLogin />} />
             <Route path="/login/teacher" element={<TeacherLogin />} />
