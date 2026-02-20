@@ -1,14 +1,17 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Brain, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react'
+import { GraduationCap, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { apiService, StudentSignupRequest } from '../services/api'
 import FormField from '../components/common/FormField'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ErrorMessage from '../components/common/ErrorMessage'
-import { 
-  GENDER_CONSTANTS, 
-  GRADE_LEVEL_CONSTANTS, 
-  ACADEMIC_STATUS_CONSTANTS, 
+import AuthPageBackground from '../components/common/AuthPageBackground'
+import AuthNavbar from '../components/common/AuthNavbar'
+import {
+  GENDER_CONSTANTS,
+  GRADE_LEVEL_CONSTANTS,
+  ACADEMIC_STATUS_CONSTANTS,
   LANGUAGE_CONSTANTS,
   VALIDATION_CONSTANTS
 } from '../constants'
@@ -52,7 +55,7 @@ const StudentSignup: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
-    
+
     // Clear field error when user starts typing
     if (fieldErrors[name]) {
       setFieldErrors(prev => {
@@ -61,7 +64,7 @@ const StudentSignup: React.FC = () => {
         return newErrors
       })
     }
-    
+
     // Clear general error
     if (error) setError('')
   }
@@ -137,7 +140,7 @@ const StudentSignup: React.FC = () => {
       const dob = new Date(formData.dateOfBirth)
       const today = new Date()
       const age = today.getFullYear() - dob.getFullYear() - (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate()) ? 1 : 0)
-      
+
       if (dob > today) {
         errors.dateOfBirth = 'Date of birth cannot be in the future'
       } else if (age < 5) {
@@ -214,7 +217,7 @@ const StudentSignup: React.FC = () => {
       const enrollmentDate = new Date(formData.enrollmentDate)
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      
+
       if (enrollmentDate < new Date('2000-01-01')) {
         errors.enrollmentDate = 'Enrollment date cannot be before 2000'
       } else if (enrollmentDate > new Date(today.getTime() + 365 * 24 * 60 * 60 * 1000)) {
@@ -341,8 +344,8 @@ const StudentSignup: React.FC = () => {
         gpa: parseFloat(formData.gpa), // Convert to number (required)
         guardianName: formData.guardianName.trim(),
         guardianRelationship: formData.guardianRelationship.trim(),
-        medicalConditions: formData.medicalConditions && formData.medicalConditions.trim() !== '' 
-          ? formData.medicalConditions.trim() 
+        medicalConditions: formData.medicalConditions && formData.medicalConditions.trim() !== ''
+          ? formData.medicalConditions.trim()
           : undefined, // Optional field
         preferredLanguage: formData.preferredLanguage.trim(),
         nationality: formData.nationality.trim(),
@@ -352,13 +355,13 @@ const StudentSignup: React.FC = () => {
       setIsSubmitted(true)
     } catch (error: unknown) {
       let errorMessage = 'Signup failed. Please try again.'
-      
+
       if (error instanceof Error) {
         errorMessage = error.message
       } else if (typeof error === 'string') {
         errorMessage = error
       }
-      
+
       setError(errorMessage)
     } finally {
       setIsLoading(false)
@@ -368,7 +371,7 @@ const StudentSignup: React.FC = () => {
   const renderStep1 = () => (
     <div className="space-y-6">
       <h3 className="text-xl font-montserrat font-semibold text-heading">Account Information</h3>
-      
+
       <FormField
         label="Username *"
         name="username"
@@ -422,7 +425,7 @@ const StudentSignup: React.FC = () => {
   const renderStep2 = () => (
     <div className="space-y-6">
       <h3 className="text-xl font-montserrat font-semibold text-heading">Personal Information</h3>
-      
+
       <div className="grid md:grid-cols-2 gap-4">
         <FormField
           label="First Name *"
@@ -496,7 +499,7 @@ const StudentSignup: React.FC = () => {
         disabled={isLoading}
         error={fieldErrors.address}
         placeholder="Enter your full address"
-        rows={3}
+        rows={5}
       />
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -556,7 +559,7 @@ const StudentSignup: React.FC = () => {
   const renderStep3 = () => (
     <div className="space-y-6">
       <h3 className="text-xl font-montserrat font-semibold text-heading">Academic Information</h3>
-      
+
       <div className="grid md:grid-cols-2 gap-4">
         <FormField
           label="Enrollment Date *"
@@ -649,133 +652,167 @@ const StudentSignup: React.FC = () => {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-6">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-soft p-8 text-center">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-3xl font-montserrat font-bold text-heading mb-4">Account Created Successfully!</h1>
+      <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-purple-50 via-violet-50 to-pink-50">
+        <motion.div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-gradient-to-br from-purple-400 to-violet-500 blur-[120px] rounded-full pointer-events-none" animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }} transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }} />
+        <motion.div className="absolute -bottom-32 -right-32 w-[600px] h-[600px] bg-gradient-to-br from-pink-400 to-purple-500 blur-[130px] rounded-full pointer-events-none" animate={{ scale: [1, 1.3, 1], opacity: [0.12, 0.22, 0.12] }} transition={{ duration: 25, repeat: Infinity, ease: 'easeInOut', delay: 2 }} />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="relative z-10 w-full max-w-md mx-auto px-6"
+        >
+          <div className="glass-card p-10 text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-glow">
+              <CheckCircle className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-2xl font-montserrat font-bold text-heading mb-3">Account Created Successfully!</h1>
             <p className="text-body mb-2">Welcome to SageFlow! Your account has been created successfully.</p>
-            <p className="text-body text-sm text-gray-500 mb-6">
+            <p className="text-sm text-gray-500 mb-7">
               Please sign in with your credentials to continue. After signing in, you'll be prompted to complete your holistic profile.
             </p>
-            <Link 
-              to="/login/student" 
-              className="inline-flex items-center justify-center w-full bg-primary hover:bg-primary/90 text-white font-montserrat font-semibold py-3.5 px-6 rounded-xl transition-all duration-200"
+            <Link
+              to="/login/student"
+              className="inline-flex items-center justify-center w-full bg-gradient-purple text-white font-montserrat font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 shadow-glow"
             >
               Sign In to Continue
             </Link>
           </div>
-        </div>
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center text-primary hover:text-primary-dark transition-colors mb-4">
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Back to Home
-          </Link>
-          <div className="flex items-center justify-center space-x-3 mb-4">
-            <Brain className="w-8 h-8 text-primary" />
-            <h1 className="text-4xl font-montserrat font-bold text-heading">SageFlow</h1>
-          </div>
-          <h2 className="text-2xl font-montserrat font-semibold text-heading">Student Registration</h2>
-          <p className="text-body text-body mt-2">Join our community and start your journey to better mental health and academic success</p>
-        </div>
+    <div className="min-h-screen flex flex-col relative overflow-hidden bg-gradient-to-br from-purple-50 via-violet-50 to-pink-50">
 
-        {/* Progress Steps */}
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center space-x-4">
-            {[1, 2, 3].map((step) => (
-              <div key={step} className="flex items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${
-                  step <= currentStep 
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-200 text-gray-600'
-                }`}>
-                  {step}
+      {/* Animated Background Orbs */}
+      <AuthPageBackground />
+
+      {/* Top Header */}
+      <AuthNavbar />
+
+      {/* Page Title */}
+      <div className="relative z-10 text-center pt-4 pb-6 px-6">
+        <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl flex items-center justify-center shadow-glow mx-auto mb-4">
+          <GraduationCap className="w-8 h-8 text-white" />
+        </div>
+        <h2 className="text-2xl font-montserrat font-bold text-heading mb-2">Student Registration</h2>
+        <p className="text-sm text-body max-w-xs mx-auto leading-relaxed">Join our community and start your journey to better mental health and academic success</p>
+      </div>
+
+      {/* Progress Steps */}
+      <div className="relative z-10 flex justify-center mb-8">
+        <div className="flex items-start">
+          {[
+            { step: 1, label: 'Account' },
+            { step: 2, label: 'Personal' },
+            { step: 3, label: 'Academic' },
+          ].map(({ step, label }, idx) => (
+            <div key={step} className="flex items-start">
+              <div className="flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${step < currentStep
+                  ? 'bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-glow'
+                  : step === currentStep
+                    ? 'bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-glow ring-4 ring-purple-200'
+                    : 'bg-white/60 backdrop-blur-sm border border-white/60 text-gray-400'
+                  }`}>
+                  {step < currentStep ? <CheckCircle className="w-4 h-4" /> : step}
                 </div>
-                {step < 3 && (
-                  <div className={`w-16 h-1 mx-2 ${
-                    step < currentStep ? 'bg-primary' : 'bg-gray-200'
-                  }`} />
-                )}
+                <span className={`mt-1.5 text-xs font-medium ${step <= currentStep ? 'text-[#7C3AED]' : 'text-gray-400'
+                  }`}>{label}</span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <ErrorMessage
-            message={error}
-            onClose={() => setError('')}
-            className="mb-6"
-          />
-        )}
-
-        {/* Form */}
-        <div className="card">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {currentStep === 1 && renderStep1()}
-            {currentStep === 2 && renderStep2()}
-            {currentStep === 3 && renderStep3()}
-
-            {/* Navigation Buttons */}
-            <div className="flex justify-between pt-6">
-              {currentStep > 1 && (
-                <button
-                  type="button"
-                  onClick={prevStep}
-                  className="btn-secondary"
-                  disabled={isLoading}
-                >
-                  Previous
-                </button>
-              )}
-              
-              {currentStep < 3 ? (
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  className="btn-primary ml-auto"
-                  disabled={isLoading}
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  className="btn-primary ml-auto flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <LoadingSpinner size="sm" color="white" />
-                  ) : (
-                    <>
-                      <CheckCircle className="w-5 h-5" />
-                      <span>Create Account</span>
-                    </>
-                  )}
-                </button>
+              {idx < 2 && (
+                <div className={`w-20 h-1 mt-5 mx-1 rounded-full transition-all duration-300 ${step < currentStep ? 'bg-gradient-to-r from-purple-500 to-violet-500' : 'bg-white/50'
+                  }`} />
               )}
             </div>
-          </form>
+          ))}
         </div>
+      </div>
 
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-body text-body">
-            Already have an account?{' '}
-            <Link to="/signin" className="text-primary hover:text-primary-dark font-semibold transition-colors">
-              Sign In
-            </Link>
-          </p>
-        </div>
+      {/* Main Content */}
+      <div className="relative z-10 flex justify-center px-6 pb-12">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="w-full max-w-2xl"
+        >
+          {/* Error Message */}
+          {error && (
+            <ErrorMessage
+              message={error}
+              onClose={() => setError('')}
+              className="mb-4"
+            />
+          )}
+
+          {/* Form Card */}
+          <div className="glass-card p-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {currentStep === 1 && renderStep1()}
+              {currentStep === 2 && renderStep2()}
+              {currentStep === 3 && renderStep3()}
+
+              {/* Navigation Buttons */}
+              <div className="flex justify-between pt-4">
+                {currentStep > 1 ? (
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    disabled={isLoading}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[#5f269e] bg-white/70 hover:bg-white/90 border border-white/60 hover:border-purple-200 font-semibold text-sm font-jakarta transition-all duration-200 disabled:opacity-50"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Previous
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                {currentStep < 3 ? (
+                  <motion.button
+                    type="button"
+                    onClick={nextStep}
+                    disabled={isLoading}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="bg-gradient-purple text-white font-montserrat font-semibold py-2.5 px-6 rounded-xl transition-all duration-200 disabled:opacity-50 shadow-glow"
+                  >
+                    Next
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    type="submit"
+                    disabled={isLoading}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="bg-gradient-purple text-white font-montserrat font-semibold py-2.5 px-6 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-glow"
+                  >
+                    {isLoading ? (
+                      <LoadingSpinner size="sm" color="white" />
+                    ) : (
+                      <>
+                        <CheckCircle className="w-5 h-5" />
+                        <span>Create Account</span>
+                      </>
+                    )}
+                  </motion.button>
+                )}
+              </div>
+            </form>
+          </div>
+
+          {/* Footer */}
+          <div className="text-center mt-5">
+            <p className="text-sm text-body">
+              Already have an account?{' '}
+              <Link to="/login/student" className="text-primary hover:text-primary-dark font-semibold transition-colors">
+                Sign In
+              </Link>
+            </p>
+          </div>
+        </motion.div>
       </div>
     </div>
   )
