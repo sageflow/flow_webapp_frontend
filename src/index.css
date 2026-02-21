@@ -34,6 +34,10 @@
     @apply w-full px-4 py-3 border border-gray-300 rounded-input focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 font-inter text-body;
   }
 
+  .textarea-field {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-input focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 font-inter text-body resize-none;
+  }
+
   .card {
     @apply bg-white rounded-card shadow-soft p-6;
   }

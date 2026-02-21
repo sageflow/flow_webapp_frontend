@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, User, Lock, GraduationCap, Eye, EyeOff } from 'lucide-react'
+import { User, Lock, GraduationCap, Eye, EyeOff } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ErrorMessage from '../components/common/ErrorMessage'
+import AuthPageBackground from '../components/common/AuthPageBackground'
+import AuthNavbar from '../components/common/AuthNavbar'
 
 const StudentLogin: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -44,76 +46,10 @@ const StudentLogin: React.FC = () => {
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-gradient-to-br from-purple-50 via-violet-50 to-pink-50">
 
       {/* Animated Background Orbs */}
-      <motion.div
-        animate={{
-          scale: [1, 1.2, 1],
-          opacity: [0.15, 0.25, 0.15],
-          x: [0, 30, 0],
-          y: [0, -20, 0],
-        }}
-        transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-gradient-to-br from-purple-400 to-violet-500 blur-[120px] rounded-full pointer-events-none"
-      />
-      <motion.div
-        animate={{
-          scale: [1, 1.3, 1],
-          opacity: [0.12, 0.22, 0.12],
-          x: [0, -40, 0],
-          y: [0, 30, 0],
-        }}
-        transition={{ duration: 25, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-        className="absolute -bottom-32 -right-32 w-[600px] h-[600px] bg-gradient-to-br from-pink-400 to-purple-500 blur-[130px] rounded-full pointer-events-none"
-      />
-      <motion.div
-        animate={{
-          scale: [1, 1.15, 1],
-          opacity: [0.1, 0.18, 0.1],
-        }}
-        transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut', delay: 4 }}
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-to-br from-violet-400 to-purple-400 blur-[100px] rounded-full pointer-events-none"
-      />
+      <AuthPageBackground />
 
-      {/* Top Header: Back on left, Logo on right */}
-      <div className="relative z-10 px-8 py-5 flex items-center justify-between">
-        {/* Back Button — left side */}
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[#5f269e] bg-white/60 backdrop-blur-md hover:bg-white/85 border border-white/50 hover:border-purple-200 shadow-soft transition-all duration-200 text-sm font-semibold font-jakarta"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Link>
-
-        {/* Logo + Brand name — right side */}
-        <Link to="/" className="flex items-center gap-3 group">
-          <motion.div
-            whileHover={{ rotateY: 360, scale: 1.1 }}
-            transition={{ duration: 0.8, ease: 'easeInOut' }}
-            style={{ transformPerspective: 600 }}
-          >
-            <motion.div
-              animate={{
-                boxShadow: [
-                  '0 0 16px rgba(139, 92, 246, 0.25)',
-                  '0 0 32px rgba(139, 92, 246, 0.45)',
-                  '0 0 16px rgba(139, 92, 246, 0.25)',
-                ],
-              }}
-              transition={{ duration: 3, repeat: Infinity }}
-              className="rounded-full"
-            >
-              <img
-                src="/logo.png"
-                alt="SageFlow"
-                className="w-10 h-10 object-contain drop-shadow-md"
-              />
-            </motion.div>
-          </motion.div>
-          <span className="text-xl font-montserrat font-bold text-heading group-hover:text-primary transition-colors duration-200">
-            SageFlow
-          </span>
-        </Link>
-      </div>
+      {/* Top Header */}
+      <AuthNavbar />
 
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center px-6 pb-12 relative z-10">
