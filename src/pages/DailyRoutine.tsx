@@ -1,42 +1,75 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { 
-  Calendar, 
-  CheckCircle, 
-  Circle, 
-  Sparkles,
-  ArrowLeft,
-  RefreshCw,
-  Sun,
-  Clock
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  Calendar, CheckCircle, Circle, Sparkles, RefreshCw, Sun, Clock
 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import { apiService } from '../services/api'
 import { GuidanceResponse } from '../services/types'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ErrorMessage from '../components/common/ErrorMessage'
+import AuthNavbar from '../components/common/AuthNavbar'
 
+// ── helpers ───────────────────────────────────────────────────────
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+
+const formatTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+
+// ── animated circular progress ring ──────────────────────────────
+const ProgressRing: React.FC<{ pct: number; size?: number; stroke?: number }> = ({
+  pct, size = 72, stroke = 6
+}) => {
+  const r = (size - stroke) / 2
+  const circ = 2 * Math.PI * r
+  const dash = circ * (1 - pct / 100)
+  return (
+    <svg width={size} height={size} className="-rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#ede9fe" strokeWidth={stroke} />
+      <motion.circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke="url(#ringGrad)" strokeWidth={stroke}
+        strokeDasharray={circ}
+        initial={{ strokeDashoffset: circ }}
+        animate={{ strokeDashoffset: dash }}
+        transition={{ duration: 1, ease: 'easeOut' }}
+        strokeLinecap="round"
+      />
+      <defs>
+        <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#8b5cf6" />
+          <stop offset="100%" stopColor="#a855f7" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
 const DailyRoutinePage: React.FC = () => {
+  const navigate = useNavigate()
   const { loading: authLoading } = useAuth()
-  
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [guidances, setGuidances] = useState<GuidanceResponse[]>([])
   const [completingId, setCompletingId] = useState<number | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const fetchTodaysGuidances = async () => {
+  const fetchTodaysGuidances = async (isRefresh = false) => {
     try {
-      setLoading(true)
+      if (isRefresh) setRefreshing(true)
+      else setLoading(true)
       setError('')
-      console.log('Fetching today\'s guidances...')
       const data = await apiService.getTodaysGuidances()
-      console.log('Guidances received:', data)
       setGuidances(data)
-    } catch (error) {
-      console.error('Failed to fetch today\'s guidances:', error)
-      setError('Failed to load today\'s guidance. Please try again.')
+    } catch {
+      setError("Failed to load today's guidance. Please try again.")
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -44,13 +77,9 @@ const DailyRoutinePage: React.FC = () => {
     try {
       setCompletingId(guidanceId)
       setError('')
-      const updatedGuidance = await apiService.markGuidanceAsComplete(guidanceId)
-      // Update the local state with the completed guidance
-      setGuidances(prev => 
-        prev.map(g => g.id === guidanceId ? updatedGuidance : g)
-      )
-    } catch (error) {
-      console.error('Failed to mark guidance as complete:', error)
+      const updated = await apiService.markGuidanceAsComplete(guidanceId)
+      setGuidances(prev => prev.map(g => g.id === guidanceId ? updated : g))
+    } catch {
       setError('Failed to mark as complete. Please try again.')
     } finally {
       setCompletingId(null)
@@ -58,232 +87,235 @@ const DailyRoutinePage: React.FC = () => {
   }
 
   useEffect(() => {
-    // Only fetch once auth is done loading
-    if (!authLoading) {
-      fetchTodaysGuidances()
-    }
+    if (!authLoading) fetchTodaysGuidances()
   }, [authLoading])
 
   const completedCount = guidances.filter(g => g.isCompleted).length
   const totalCount = guidances.length
-  const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
+  const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
+  const allDone = totalCount > 0 && pct === 100
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })
-  }
-
-  const formatTime = (dateTimeString: string) => {
-    const date = new Date(dateTimeString)
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit'
-    })
-  }
-
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 flex items-center justify-center">
-        <LoadingSpinner size="lg" message="Loading your daily guidance..." />
-      </div>
-    )
-  }
-
+  // ── Page shell ────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
-      {/* Header */}
-      <nav className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-200">
-                <Sun className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
-                Daily Guidance
-              </span>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={fetchTodaysGuidances}
-                className="p-2 text-gray-500 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
-                title="Refresh"
-              >
-                <RefreshCw className="w-5 h-5" />
-              </button>
-              <Link 
-                to="/dashboard" 
-                className="flex items-center space-x-2 text-gray-600 hover:text-orange-600 font-medium transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Dashboard</span>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen flex flex-col relative overflow-x-hidden bg-gradient-to-br from-purple-50 via-violet-50 to-pink-50">
+      {/* Ambient orbs */}
+      <div className="fixed -top-40 -left-40 w-[500px] h-[500px] bg-gradient-to-br from-purple-300/20 to-violet-400/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="fixed -bottom-40 -right-40 w-[600px] h-[600px] bg-gradient-to-br from-amber-300/15 to-orange-400/10 blur-[130px] rounded-full pointer-events-none" />
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Hero Section */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center space-x-2 bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full text-sm text-orange-700 mb-4">
-            <Calendar className="w-4 h-4" />
-            <span>{formatDate(new Date().toISOString())}</span>
+      {/* Navbar */}
+      <AuthNavbar backTo="/dashboard" backLabel="Dashboard" />
+
+      {/* Main */}
+      <div className="max-w-2xl w-full mx-auto px-6 pb-16 relative z-10">
+
+        {/* ── Hero ── */}
+        <motion.div
+          initial={{ opacity: 0, y: -14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="text-center mb-8"
+        >
+          <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm px-4 py-1.5 rounded-full text-xs font-semibold text-violet-700 mb-4 border border-violet-100/60">
+            <Calendar className="w-3.5 h-3.5" />
+            {formatDate(new Date().toISOString())}
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-3">
-            Your Daily Guidance
-          </h1>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-            Personalized activities to help you thrive today. Complete each one to build positive habits.
+          <h1 className="text-h1 text-heading mb-1">Your Daily Guidance</h1>
+          <p className="text-body text-body max-w-md mx-auto">
+            Personalised activities to help you thrive today. Complete each one to build positive habits.
           </p>
-        </div>
+        </motion.div>
 
-        {/* Error Message */}
+        {/* Error */}
         {error && (
-          <div className="mb-6">
-            <ErrorMessage message={error} />
-          </div>
+          <ErrorMessage message={error} onClose={() => setError('')} className="mb-5" />
         )}
 
-        {/* Progress Card */}
-        {guidances.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-xl shadow-orange-100 p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800">Today's Progress</h2>
-                  <p className="text-sm text-gray-500">{completedCount} of {totalCount} completed</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-3xl font-bold text-emerald-600">{completionPercentage}%</span>
-              </div>
-            </div>
-            <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${completionPercentage}%` }}
-              />
-            </div>
+        {/* ── Loading ── */}
+        {(authLoading || loading) ? (
+          <div className="flex justify-center py-24">
+            <LoadingSpinner size="lg" />
           </div>
-        )}
+        ) : guidances.length === 0 ? (
+          /* ── Empty state ── */
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+            className="glass-card p-14 text-center"
+          >
+            <div className="w-20 h-20 bg-gradient-to-br from-amber-100 to-orange-100 rounded-full flex items-center justify-center mx-auto mb-5">
+              <Sun className="w-10 h-10 text-orange-400" />
+            </div>
+            <h3 className="text-lg font-montserrat font-bold text-heading mb-2">No Guidance for Today</h3>
+            <p className="text-sm text-body max-w-xs mx-auto mb-6">
+              Check back later! Your personalised daily guidance will appear here once it's ready.
+            </p>
+            <button
+              onClick={() => fetchTodaysGuidances(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-100 hover:bg-violet-200 text-violet-700 text-sm font-semibold transition-all"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </motion.div>
+        ) : (
+          <>
+            {/* ── Progress card ── */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.05 }}
+              className="glass-card p-5 mb-6"
+            >
+              <div className="flex items-center gap-5">
+                {/* Ring */}
+                <div className="relative flex-shrink-0 flex items-center justify-center">
+                  <ProgressRing pct={pct} />
+                  <div className="absolute text-center">
+                    <p className="text-lg font-montserrat font-bold text-heading leading-none">{pct}%</p>
+                  </div>
+                </div>
 
-        {/* Guidance List */}
-        {guidances.length > 0 ? (
-          <div className="space-y-4">
-            {guidances.map((guidance, index) => (
-              <div 
-                key={guidance.id}
-                className={`group bg-white rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl ${
-                  guidance.isCompleted 
-                    ? 'ring-2 ring-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50' 
-                    : 'hover:scale-[1.01]'
-                }`}
-              >
-                <div className="p-6">
-                  <div className="flex items-start space-x-4">
-                    {/* Number Badge */}
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${
-                      guidance.isCompleted
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-gradient-to-br from-amber-400 to-orange-500 text-white'
-                    }`}>
-                      {guidance.isCompleted ? (
-                        <CheckCircle className="w-5 h-5" />
-                      ) : (
-                        index + 1
-                      )}
+                {/* Progress text */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm">
+                      <Sparkles className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <p className="text-sm font-bold text-heading">Today's Progress</p>
+                  </div>
+                  <p className="text-xs text-label mb-3">{completedCount} of {totalCount} tasks completed</p>
+                  <div className="w-full h-2 bg-violet-100 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.9, ease: 'easeOut' }}
+                      className="h-full bg-gradient-to-r from-violet-500 to-purple-500 rounded-full"
+                    />
+                  </div>
+                </div>
+
+                {/* Refresh */}
+                <button
+                  onClick={() => fetchTodaysGuidances(true)}
+                  title="Refresh"
+                  className="w-9 h-9 rounded-xl bg-white/70 hover:bg-violet-50 border border-white/60 flex items-center justify-center transition-all flex-shrink-0"
+                >
+                  <RefreshCw className={`w-4 h-4 text-violet-500 ${refreshing ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </motion.div>
+
+            {/* ── Guidance list ── */}
+            <div className="space-y-3 mb-6">
+              {guidances.map((guidance, index) => (
+                <motion.div
+                  key={guidance.id}
+                  initial={{ opacity: 0, y: 18 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 + index * 0.08 }}
+                  className={`glass-card p-5 transition-all duration-300 ${guidance.isCompleted ? 'opacity-70' : 'hover:shadow-lg'
+                    }`}
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Index badge */}
+                    <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shadow-sm ${guidance.isCompleted
+                        ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white'
+                        : 'bg-gradient-to-br from-violet-500 to-purple-600 text-white'
+                      }`}>
+                      {guidance.isCompleted
+                        ? <CheckCircle className="w-4.5 h-4.5" />
+                        : index + 1
+                      }
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <p className={`text-lg leading-relaxed ${
-                        guidance.isCompleted 
-                          ? 'text-gray-500 line-through' 
-                          : 'text-gray-800'
-                      }`}>
+                      <p className={`text-sm leading-relaxed font-medium ${guidance.isCompleted ? 'text-gray-400 line-through' : 'text-heading'
+                        }`}>
                         {guidance.guidanceText}
                       </p>
-                      
-                      {/* Meta Info */}
-                      <div className="flex items-center space-x-4 mt-3 text-sm text-gray-400">
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4" />
-                          <span>Added {formatTime(guidance.createdAt)}</span>
-                        </div>
-                        {guidance.isCompleted && guidance.completedAt && (
-                          <div className="flex items-center space-x-1 text-emerald-500">
-                            <CheckCircle className="w-4 h-4" />
-                            <span>Completed at {formatTime(guidance.completedAt)}</span>
-                          </div>
-                        )}
+                      <div className="flex flex-wrap items-center gap-3 mt-2">
+                        <span className="flex items-center gap-1 text-[11px] text-label">
+                          <Clock className="w-3 h-3" />
+                          Added {formatTime(guidance.createdAt)}
+                        </span>
+                        <AnimatePresence>
+                          {guidance.isCompleted && guidance.completedAt && (
+                            <motion.span
+                              initial={{ opacity: 0, x: -6 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold"
+                            >
+                              <CheckCircle className="w-3 h-3" />
+                              Done at {formatTime(guidance.completedAt)}
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
 
-                    {/* Action Button */}
+                    {/* Action */}
                     <div className="flex-shrink-0">
                       {guidance.isCompleted ? (
-                        <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                          <CheckCircle className="w-6 h-6 text-emerald-500" />
+                        <div className="w-9 h-9 bg-emerald-100 rounded-full flex items-center justify-center">
+                          <CheckCircle className="w-5 h-5 text-emerald-500" />
                         </div>
                       ) : (
-                        <button
+                        <motion.button
                           onClick={() => markAsComplete(guidance.id)}
                           disabled={completingId === guidance.id}
-                          className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-emerald-500 hover:scale-110 transition-all duration-200 group/btn disabled:opacity-50 disabled:cursor-not-allowed"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.92 }}
+                          className="w-9 h-9 rounded-full border-2 border-violet-200 bg-white/80 flex items-center justify-center hover:border-violet-500 hover:bg-violet-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                           title="Mark as complete"
                         >
-                          {completingId === guidance.id ? (
-                            <RefreshCw className="w-5 h-5 text-gray-400 animate-spin" />
-                          ) : (
-                            <Circle className="w-6 h-6 text-gray-300 group-hover/btn:text-white transition-colors" />
-                          )}
-                        </button>
+                          {completingId === guidance.id
+                            ? <RefreshCw className="w-4 h-4 text-violet-400 animate-spin" />
+                            : <Circle className="w-4 h-4 text-violet-300" />
+                          }
+                        </motion.button>
                       )}
                     </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          /* Empty State */
-          <div className="bg-white rounded-2xl shadow-xl shadow-orange-100 p-12 text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-amber-100 to-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Sun className="w-10 h-10 text-orange-400" />
+                </motion.div>
+              ))}
             </div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">No Guidance for Today</h3>
-            <p className="text-gray-500 max-w-md mx-auto">
-              Check back later! Your personalized daily guidance will appear here once it's ready.
-            </p>
-          </div>
-        )}
 
-        {/* Motivational Footer */}
-        {guidances.length > 0 && completionPercentage < 100 && (
-          <div className="mt-8 text-center">
-            <p className="text-gray-500 italic">
-              "Small steps every day lead to big changes over time."
-            </p>
-          </div>
-        )}
-
-        {guidances.length > 0 && completionPercentage === 100 && (
-          <div className="mt-8 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl p-6 text-center text-white">
-            <div className="text-4xl mb-2">🎉</div>
-            <h3 className="text-xl font-bold mb-1">Amazing Work!</h3>
-            <p className="text-emerald-100">You've completed all your guidance for today. Keep up the great momentum!</p>
-          </div>
+            {/* ── Footer quote / all-done banner ── */}
+            <AnimatePresence mode="wait">
+              {allDone ? (
+                <motion.div
+                  key="done"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="glass-card p-7 text-center"
+                >
+                  <div className="text-4xl mb-3">🎉</div>
+                  <h3 className="text-lg font-montserrat font-bold text-heading mb-1">Amazing Work!</h3>
+                  <p className="text-sm text-body">You've completed all your guidance for today. Keep up the great momentum!</p>
+                  <motion.button
+                    onClick={() => navigate('/dashboard')}
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    className="mt-5 inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white text-sm font-semibold rounded-xl shadow-glow hover:opacity-90 transition-all"
+                  >
+                    Back to Dashboard
+                  </motion.button>
+                </motion.div>
+              ) : (
+                <motion.p
+                  key="quote"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-center text-xs text-label italic"
+                >
+                  "Small steps every day lead to big changes over time."
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </>
         )}
       </div>
     </div>

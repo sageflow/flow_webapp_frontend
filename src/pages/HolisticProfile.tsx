@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Brain, CheckCircle, Bed, Utensils, Dumbbell, Monitor, Eye, AlertCircle } from 'lucide-react'
+import { CheckCircle, Bed, Utensils, Dumbbell, Monitor, Eye } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { apiService } from '../services/api'
-import { 
+import {
   StudentInterestDTO,
   SleepHabitsRequest,
   DietHabitsRequest,
@@ -15,9 +16,10 @@ import { useAuth } from '../contexts/AuthContext'
 import FormField from '../components/common/FormField'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ErrorMessage from '../components/common/ErrorMessage'
-import { 
-  HOBBY_CONSTANTS, 
-  PROFESSION_CONSTANTS, 
+import AuthNavbar from '../components/common/AuthNavbar'
+import {
+  HOBBY_CONSTANTS,
+  PROFESSION_CONSTANTS,
   MEDICAL_CONDITION_CONSTANTS,
   DEVICE_TYPE_CONSTANTS,
   MEDIA_PLATFORM_CONSTANTS,
@@ -29,7 +31,7 @@ const HolisticProfile: React.FC = () => {
   const { user, updateUser } = useAuth()
   const navigate = useNavigate()
 
-  
+
   const [formData, setFormData] = useState<{
     hobbies: string[]
     aspirations: string[]
@@ -85,7 +87,7 @@ const HolisticProfile: React.FC = () => {
     hobbies: [],
     aspirations: [],
     achievements: [],
-    
+
     // Habit Profile
     sleep: {
       bedtime: '',
@@ -120,11 +122,11 @@ const HolisticProfile: React.FC = () => {
       contentType: '',
       durationMinutes: 60,
       contentCategory: '',
-      isEducational: true,
-      ageAppropriate: true,
+      isEducational: false,
+      ageAppropriate: false,
       notes: ''
     },
-    
+
     // Physical Profile
     accessibility: {
       textToSpeech: false,
@@ -170,7 +172,7 @@ const HolisticProfile: React.FC = () => {
           apiService.getHobbies(),
           apiService.getProfessions()
         ]);
-        
+
         setHobbies(hobbiesData);
         setProfessions(professionsData);
 
@@ -185,11 +187,11 @@ const HolisticProfile: React.FC = () => {
               const hobbyDisplayNames = (existingInterest.hobbies || [])
                 .map(enumName => hobbyEnumToDisplayName(enumName))
                 .filter(displayName => hobbiesData.includes(displayName)); // Only include if it exists in the API list
-              
+
               const professionDisplayNames = (existingInterest.professions || [])
                 .map(enumName => professionEnumToDisplayName(enumName))
                 .filter(displayName => professionsData.includes(displayName)); // Only include if it exists in the API list
-              
+
               setFormData(prev => ({
                 ...prev,
                 hobbies: hobbyDisplayNames,
@@ -301,8 +303,8 @@ const HolisticProfile: React.FC = () => {
                   contentType: todayMediaConsumption.contentType || '',
                   durationMinutes: todayMediaConsumption.durationMinutes ?? 60,
                   contentCategory: todayMediaConsumption.contentCategory || '',
-                  isEducational: todayMediaConsumption.isEducational ?? true,
-                  ageAppropriate: todayMediaConsumption.ageAppropriate ?? true,
+                  isEducational: todayMediaConsumption.isEducational ?? false,
+                  ageAppropriate: todayMediaConsumption.ageAppropriate ?? false,
                   notes: todayMediaConsumption.notes || '',
                 }
               }));
@@ -384,7 +386,7 @@ const HolisticProfile: React.FC = () => {
       // user.id may be a number (from login response) or need conversion
       const rawId = user.id
       const studentId = typeof rawId === 'number' ? rawId : Number(rawId)
-      
+
       if (!studentId || isNaN(studentId) || studentId <= 0) {
         console.error('[HolisticProfile] Cannot resolve numeric student ID. user:', JSON.stringify(user))
         setError(`Unable to identify your account (id: ${rawId}). Please sign out and sign in again.`)
@@ -448,7 +450,7 @@ const HolisticProfile: React.FC = () => {
       }
 
       await apiService.createStudentInterest(interestData)
-      
+
       // 4. Save habits data
       const sleepHabits: SleepHabitsRequest = {
         studentId,
@@ -526,18 +528,18 @@ const HolisticProfile: React.FC = () => {
         studentId,
         textToSpeechNeeded: formData.accessibility.textToSpeech,
         motorSupportNeeded: formData.accessibility.motorSupport,
-        bodyWeightKg: formData.bodyWeightKg && formData.bodyWeightKg.trim() !== '' 
-          ? parseFloat(formData.bodyWeightKg) 
+        bodyWeightKg: formData.bodyWeightKg && formData.bodyWeightKg.trim() !== ''
+          ? parseFloat(formData.bodyWeightKg)
           : undefined,
-        heightFeet: formData.heightFeet && formData.heightFeet.trim() !== '' 
-          ? parseInt(formData.heightFeet, 10) 
+        heightFeet: formData.heightFeet && formData.heightFeet.trim() !== ''
+          ? parseInt(formData.heightFeet, 10)
           : undefined,
-        heightInches: formData.heightInches && formData.heightInches.trim() !== '' 
-          ? parseInt(formData.heightInches, 10) 
+        heightInches: formData.heightInches && formData.heightInches.trim() !== ''
+          ? parseInt(formData.heightInches, 10)
           : undefined,
         medicalCondition: formData.medicalCondition,
-        medicalConditionNotes: formData.medicalConditionNotes && formData.medicalConditionNotes.trim() !== '' 
-          ? formData.medicalConditionNotes.trim() 
+        medicalConditionNotes: formData.medicalConditionNotes && formData.medicalConditionNotes.trim() !== ''
+          ? formData.medicalConditionNotes.trim()
           : undefined
       }
 
@@ -555,16 +557,16 @@ const HolisticProfile: React.FC = () => {
         console.log('[HolisticProfile] Calling POST /profile/physical')
         await apiService.createPhysicalProfile(physicalProfile)
       }
-      
+
       console.log('Holistic profile submitted successfully')
-      
+
       // Update auth context to reflect profile completion
       updateUser({ holisticProfileCompleted: true })
-      
+
       setIsSubmitted(true)
     } catch (error: unknown) {
       console.error('Profile submission error:', error)
-      
+
       const status = (error as any)?.status
       if (status === 401) {
         setError('Your session has expired. Please sign out and sign in again.')
@@ -574,7 +576,7 @@ const HolisticProfile: React.FC = () => {
         setError('You do not have permission to save the physical profile. Please contact your administrator to grant access.')
         return
       }
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Failed to save profile. Please try again.'
       setError(errorMessage)
     } finally {
@@ -585,738 +587,683 @@ const HolisticProfile: React.FC = () => {
   const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 3))
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1))
 
+
   const renderStep1 = () => (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <h3 className="text-xl font-montserrat font-semibold text-heading">Hobbies & Aspirations</h3>
-      
-      <div>
-        <label className="block text-label text-label mb-3">What are your hobbies? (Select all that apply)</label>
-        <div className="grid md:grid-cols-2 gap-3 max-h-64 overflow-y-auto p-4 border border-gray-200 rounded-input">
-          {hobbies.map((hobby) => (
-            <label key={hobby} className="flex items-center space-x-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.hobbies.includes(hobby)}
-                onChange={() => handleCheckboxChange('hobbies', hobby)}
-                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-              />
-              <span className="text-body">{hobby}</span>
-            </label>
-          ))}
+
+      {/* ── Hobbies chip picker ── */}
+      <div className="space-y-4">
+        {/* Question header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-start gap-3">
+            <div className="w-1 h-8 bg-gradient-to-b from-violet-500 to-purple-600 rounded-full mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-base font-montserrat font-bold text-heading leading-snug">
+                What are your hobbies?
+              </p>
+              <p className="text-xs text-label mt-0.5">Select all activities you enjoy in your free time</p>
+            </div>
+          </div>
+          {formData.hobbies.length > 0 && (
+            <span className="text-[11px] font-bold bg-violet-100 text-violet-700 px-2.5 py-1 rounded-full flex-shrink-0">
+              {formData.hobbies.length} selected
+            </span>
+          )}
         </div>
-        <p className="text-sm text-label mt-2">Select all activities you enjoy doing in your free time</p>
+        {/* Chip area */}
+        <div className="bg-violet-50/50 border border-violet-100/60 rounded-2xl p-4">
+          <div className="flex flex-wrap gap-2">
+            {hobbies.map((hobby) => {
+              const selected = formData.hobbies.includes(hobby)
+              return (
+                <button
+                  key={hobby}
+                  type="button"
+                  onClick={() => handleCheckboxChange('hobbies', hobby)}
+                  className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-150 border ${selected
+                    ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white border-transparent shadow-glow'
+                    : 'bg-white border-white/80 text-body hover:border-violet-300 hover:text-violet-700 hover:bg-white'
+                    }`}
+                >
+                  {hobby}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
-      <div>
-        <label className="block text-label text-label mb-3">What do you want to be when you grow up? (Select all that interest you)</label>
-        <div className="grid md:grid-cols-2 gap-3 max-h-64 overflow-y-auto p-4 border border-gray-200 rounded-input">
-          {professions.map((profession) => (
-            <label key={profession} className="flex items-center space-x-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.aspirations.includes(profession)}
-                onChange={() => handleCheckboxChange('aspirations', profession)}
-                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-              />
-              <span className="text-body">{profession}</span>
-            </label>
-          ))}
+      {/* ── Aspirations chip picker ── */}
+      <div className="space-y-4">
+        {/* Question header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-start gap-3">
+            <div className="w-1 h-8 bg-gradient-to-b from-violet-500 to-purple-600 rounded-full mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-base font-montserrat font-bold text-heading leading-snug">
+                What do you want to be when you grow up?
+              </p>
+              <p className="text-xs text-label mt-0.5">Select all careers that interest you</p>
+            </div>
+          </div>
+          {formData.aspirations.length > 0 && (
+            <span className="text-[11px] font-bold bg-violet-100 text-violet-700 px-2.5 py-1 rounded-full flex-shrink-0">
+              {formData.aspirations.length} selected
+            </span>
+          )}
         </div>
-        <p className="text-sm text-label mt-2">Choose all careers that sound interesting to you</p>
+        {/* Chip area */}
+        <div className="bg-violet-50/50 border border-violet-100/60 rounded-2xl p-4">
+          <div className="flex flex-wrap gap-2">
+            {professions.map((profession) => {
+              const selected = formData.aspirations.includes(profession)
+              return (
+                <button
+                  key={profession}
+                  type="button"
+                  onClick={() => handleCheckboxChange('aspirations', profession)}
+                  className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-150 border ${selected
+                    ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white border-transparent shadow-glow'
+                    : 'bg-white border-white/80 text-body hover:border-violet-300 hover:text-violet-700 hover:bg-white'
+                    }`}
+                >
+                  {profession}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
-      <div>
-        <label className="block text-label text-label mb-2">Achievements & Accolades</label>
+      {/* ── Achievements ── */}
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-1 h-8 bg-gradient-to-b from-amber-400 to-orange-500 rounded-full mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-base font-montserrat font-bold text-heading leading-snug">Achievements & Accolades</p>
+            <p className="text-xs text-label mt-0.5">Separate multiple achievements with commas</p>
+          </div>
+        </div>
         <textarea
           name="achievements"
           value={formData.achievements.join(', ')}
           onChange={(e) => setFormData(prev => ({ ...prev, achievements: e.target.value.split(',').map(s => s.trim()).filter(s => s) }))}
-          className="input-field"
+          className="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-white/60 rounded-xl text-heading placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all resize-none"
           rows={4}
-          placeholder="List your achievements (academic awards, sports medals, art competitions, etc.)"
+          placeholder="e.g. State chess champion, Science fair 2nd place, School cricket team captain…"
         />
-        <p className="text-sm text-label mt-1">Separate multiple achievements with commas</p>
       </div>
     </div>
   )
 
-  const renderStep2 = () => (
-    <div className="space-y-6">
-      <h3 className="text-xl font-montserrat font-semibold text-heading">Habit Profile</h3>
-      
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <h4 className="text-lg font-montserrat font-semibold text-heading flex items-center">
-            <Bed className="w-5 h-5 mr-2 text-primary" />
-            Sleep Habits
-          </h4>
-          
-          <div>
-            <label className="block text-label text-label mb-2">Bedtime</label>
-            <input
-              type="time"
-              name="sleep.bedtime"
-              value={formData.sleep.bedtime}
-              onChange={handleInputChange}
-              className="input-field"
-            />
+
+  const renderStep2 = () => {
+    // Shared glass input className
+    const gInput = 'w-full px-4 py-2.5 bg-white/70 backdrop-blur-sm border border-white/60 rounded-xl text-heading placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-400/40 transition-all'
+    const gTextarea = `${gInput} resize-none`
+    const gSelect = `${gInput} cursor-pointer`
+
+    return (
+      <div className="space-y-8">
+        <h3 className="text-xl font-montserrat font-semibold text-heading">Habit Profile</h3>
+
+        {/* ── Row 1: Sleep + Diet ── */}
+        <div className="grid md:grid-cols-2 gap-6">
+
+          {/* Sleep */}
+          <div className="bg-indigo-50/50 border border-indigo-100/60 rounded-2xl p-5 space-y-4">
+            <div className="flex items-start gap-3 pb-3 border-b border-indigo-100/60">
+              <div className="w-1 h-8 bg-gradient-to-b from-indigo-400 to-violet-500 rounded-full mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-base font-montserrat font-bold text-heading flex items-center gap-2">
+                  <Bed className="w-4 h-4 text-indigo-500" /> Sleep Habits
+                </p>
+                <p className="text-xs text-label mt-0.5">Log your sleep patterns for today</p>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Bedtime</label>
+              <input type="time" name="sleep.bedtime" value={formData.sleep.bedtime} onChange={handleInputChange} className={gInput} />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Wake Time</label>
+              <input type="time" name="sleep.wakeTime" value={formData.sleep.wakeTime} onChange={handleInputChange} className={gInput} />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Sleep Quality</label>
+              <div className="flex items-center gap-2">
+                {[1, 2, 3, 4, 5].map((score) => (
+                  <button
+                    key={score}
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, sleep: { ...prev.sleep, sleepQualityScore: score } }))}
+                    className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all ${formData.sleep.sleepQualityScore === score
+                      ? 'bg-gradient-to-br from-violet-500 to-purple-600 border-transparent text-white shadow-glow'
+                      : 'bg-white/70 border-white/60 text-gray-500 hover:border-violet-400 hover:text-violet-600'
+                      }`}
+                  >{score}</button>
+                ))}
+              </div>
+              <p className="text-xs text-label">1 = Poor · 5 = Excellent</p>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Total Sleep Hours</label>
+              <input type="number" name="sleep.totalSleepHours" value={formData.sleep.totalSleepHours} onChange={handleInputChange} className={gInput} min="0" max="24" step="0.5" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Notes</label>
+              <textarea name="sleep.notes" value={formData.sleep.notes} onChange={handleInputChange} className={gTextarea} rows={2} placeholder="Any additional notes…" />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-label text-label mb-2">Wake Time</label>
-            <input
-              type="time"
-              name="sleep.wakeTime"
-              value={formData.sleep.wakeTime}
-              onChange={handleInputChange}
-              className="input-field"
-            />
+          {/* Diet */}
+          <div className="bg-emerald-50/50 border border-emerald-100/60 rounded-2xl p-5 space-y-4">
+            <div className="flex items-start gap-3 pb-3 border-b border-emerald-100/60">
+              <div className="w-1 h-8 bg-gradient-to-b from-emerald-400 to-teal-500 rounded-full mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-base font-montserrat font-bold text-heading flex items-center gap-2">
+                  <Utensils className="w-4 h-4 text-emerald-500" /> Diet Habits
+                </p>
+                <p className="text-xs text-label mt-0.5">Track your nutrition for today</p>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Daily Water Intake (ml)</label>
+              <input type="number" name="diet.waterIntakeMl" value={formData.diet.waterIntakeMl} onChange={handleInputChange} className={gInput} min="0" max="10000" step="100" />
+              <p className="text-xs text-label">Recommended: 2000–3000 ml / day</p>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Junk Food Frequency (per day)</label>
+              <input type="number" name="diet.junkFoodFrequency" value={formData.diet.junkFoodFrequency} onChange={handleInputChange} className={gInput} min="0" max="10" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Meals Consumed Today</label>
+              <input type="number" name="diet.mealsConsumed" value={formData.diet.mealsConsumed} onChange={handleInputChange} className={gInput} min="1" max="6" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Notes</label>
+              <textarea name="diet.notes" value={formData.diet.notes} onChange={handleInputChange} className={gTextarea} rows={2} placeholder="Any additional notes…" />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Row 2: Exercise + Screen Time ── */}
+        <div className="grid md:grid-cols-2 gap-6">
+
+          {/* Exercise */}
+          <div className="bg-amber-50/50 border border-amber-100/60 rounded-2xl p-5 space-y-4">
+            <div className="flex items-start gap-3 pb-3 border-b border-amber-100/60">
+              <div className="w-1 h-8 bg-gradient-to-b from-amber-400 to-orange-500 rounded-full mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-base font-montserrat font-bold text-heading flex items-center gap-2">
+                  <Dumbbell className="w-4 h-4 text-amber-500" /> Exercise Habits
+                </p>
+                <p className="text-xs text-label mt-0.5">Log your physical activity for today</p>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Exercise Hours Today</label>
+              <input type="number" name="exercise.exerciseHours" value={formData.exercise.exerciseHours} onChange={handleInputChange} className={gInput} min="0" max="8" step="0.5" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Exercise Type</label>
+              <input type="text" name="exercise.exerciseType" value={formData.exercise.exerciseType} onChange={handleInputChange} className={gInput} placeholder="e.g., Running, Yoga, Swimming…" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Intensity Level</label>
+              <select name="exercise.intensityLevel" value={formData.exercise.intensityLevel} onChange={handleInputChange} className={gSelect}>
+                <option value="LIGHT">Light</option>
+                <option value="MODERATE">Moderate</option>
+                <option value="VIGOROUS">Vigorous</option>
+                <option value="EXTREME">Extreme</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Calories Burned</label>
+              <input type="number" name="exercise.caloriesBurned" value={formData.exercise.caloriesBurned} onChange={handleInputChange} className={gInput} min="0" max="2000" step="10" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Notes</label>
+              <textarea name="exercise.notes" value={formData.exercise.notes} onChange={handleInputChange} className={gTextarea} rows={2} placeholder="Any additional notes…" />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-label text-label mb-2">Sleep Quality Score (1-5)</label>
-            <div className="flex items-center space-x-2">
-              {[1, 2, 3, 4, 5].map((score) => (
-                <button
-                  key={score}
-                  type="button"
-                  onClick={() => setFormData(prev => ({
-                    ...prev,
-                    sleep: { ...prev.sleep, sleepQualityScore: score }
-                  }))}
-                  className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-colors ${
-                    formData.sleep.sleepQualityScore === score
-                      ? 'border-primary bg-primary text-white'
-                      : 'border-gray-300 text-gray-500 hover:border-primary'
-                  }`}
-                >
-                  {score}
+          {/* Screen Time */}
+          <div className="bg-purple-50/50 border border-purple-100/60 rounded-2xl p-5 space-y-4">
+            <div className="flex items-start gap-3 pb-3 border-b border-purple-100/60">
+              <div className="w-1 h-8 bg-gradient-to-b from-violet-500 to-purple-600 rounded-full mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-base font-montserrat font-bold text-heading flex items-center gap-2">
+                  <Monitor className="w-4 h-4 text-violet-500" /> Screen Time
+                </p>
+                <p className="text-xs text-label mt-0.5">Track your device usage for today</p>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Total Screen Time (hours)</label>
+              <input type="number" name="screen.totalScreenTimeHours" value={formData.screen.totalScreenTimeHours} onChange={handleInputChange} className={gInput} min="0" max="24" step="0.5" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Pre-Sleep Screen Time (min)</label>
+              <input type="number" name="screen.preSleepScreenTimeMinutes" value={formData.screen.preSleepScreenTimeMinutes} onChange={handleInputChange} className={gInput} min="0" max="180" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Primary Device</label>
+              <select name="screen.deviceType" value={formData.screen.deviceType} onChange={handleInputChange} className={gSelect}>
+                <option value="MOBILE">Mobile Phone</option>
+                <option value="TABLET">Tablet</option>
+                <option value="LAPTOP">Laptop</option>
+                <option value="DESKTOP">Desktop Computer</option>
+                <option value="TV">Television</option>
+                <option value="GAMING_CONSOLE">Gaming Console</option>
+                <option value="SMARTWATCH">Smartwatch</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase mb-1">Toggles</label>
+              {[{
+                checked: formData.screen.screenTimeBeforeBed,
+                label: 'Used screen before bed',
+                onChange: () => setFormData(prev => ({ ...prev, screen: { ...prev.screen, screenTimeBeforeBed: !prev.screen.screenTimeBeforeBed } }))
+              }, {
+                checked: formData.screen.blueLightFilterUsed,
+                label: 'Used blue light filter',
+                onChange: () => setFormData(prev => ({ ...prev, screen: { ...prev.screen, blueLightFilterUsed: !prev.screen.blueLightFilterUsed } }))
+              }].map(({ checked, label, onChange }) => (
+                <button key={label} type="button" onClick={onChange}
+                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${checked
+                    ? 'bg-violet-100/80 border-violet-300 text-violet-800'
+                    : 'bg-white/60 border-white/60 text-body hover:border-violet-200'
+                    }`}>
+                  <span>{label}</span>
+                  <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 transition-all ${checked ? 'bg-violet-600 border-violet-600' : 'bg-transparent border-gray-300'
+                    }`} />
                 </button>
               ))}
             </div>
-            <p className="text-sm text-label mt-1">1 = Poor sleep, 5 = Excellent sleep</p>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Notes</label>
+              <textarea name="screen.notes" value={formData.screen.notes} onChange={handleInputChange} className={gTextarea} rows={2} placeholder="Any additional notes…" />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Media Consumption ── */}
+        <div className="bg-pink-50/50 border border-pink-100/60 rounded-2xl p-5 space-y-5">
+          <div className="flex items-start gap-3 pb-3 border-b border-pink-100/60">
+            <div className="w-1 h-8 bg-gradient-to-b from-pink-400 to-rose-500 rounded-full mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-base font-montserrat font-bold text-heading flex items-center gap-2">
+                <Eye className="w-4 h-4 text-pink-500" /> Media Consumption
+              </p>
+              <p className="text-xs text-label mt-0.5">What are you watching or listening to?</p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-label text-label mb-2">Total Sleep Hours</label>
-            <input
-              type="number"
-              name="sleep.totalSleepHours"
-              value={formData.sleep.totalSleepHours}
+          <div className="grid md:grid-cols-2 gap-5">
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Platform</label>
+              <select name="media.platform" value={formData.media.platform} onChange={handleInputChange} className={gSelect}>
+                <option value="YOUTUBE">YouTube</option>
+                <option value="INSTAGRAM">Instagram</option>
+                <option value="TIKTOK">TikTok</option>
+                <option value="REDDIT">Reddit</option>
+                <option value="TWITTER">Twitter/X</option>
+                <option value="FACEBOOK">Facebook</option>
+                <option value="SNAPCHAT">Snapchat</option>
+                <option value="PINTEREST">Pinterest</option>
+                <option value="TWITCH">Twitch</option>
+                <option value="NETFLIX">Netflix</option>
+                <option value="DISNEY_PLUS">Disney+</option>
+                <option value="AMAZON_PRIME">Amazon Prime</option>
+                <option value="VIDEO_GAMES">Video Games</option>
+                <option value="PODCASTS">Podcasts</option>
+                <option value="AUDIOBOOKS">Audiobooks</option>
+                <option value="EBOOKS">E-books</option>
+                <option value="ONLINE_NEWS">Online News</option>
+                <option value="BLOGS">Blogs</option>
+                <option value="EDUCATIONAL_APPS">Educational Apps</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Content Type</label>
+              <input type="text" name="media.contentType" value={formData.media.contentType} onChange={handleInputChange} className={gInput} placeholder="e.g., Videos, Shorts, Podcasts…" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Duration (minutes)</label>
+              <input type="number" name="media.durationMinutes" value={formData.media.durationMinutes} onChange={handleInputChange} className={gInput} min="0" max="1440" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Content Category</label>
+              <input type="text" name="media.contentCategory" value={formData.media.contentCategory} onChange={handleInputChange} className={gInput} placeholder="e.g., Entertainment, Education…" />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            {[{
+              checked: formData.media.isEducational,
+              label: 'Educational content',
+              onChange: () => setFormData(prev => ({ ...prev, media: { ...prev.media, isEducational: !prev.media.isEducational } }))
+            }, {
+              checked: formData.media.ageAppropriate,
+              label: 'Age-appropriate content',
+              onChange: () => setFormData(prev => ({ ...prev, media: { ...prev.media, ageAppropriate: !prev.media.ageAppropriate } }))
+            }].map(({ checked, label, onChange }) => (
+              <button key={label} type="button" onClick={onChange}
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${checked
+                  ? 'bg-pink-100/80 border-pink-300 text-pink-800'
+                  : 'bg-white/60 border-white/60 text-body hover:border-pink-200'
+                  }`}>
+                <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 transition-all ${checked ? 'bg-pink-500 border-pink-500' : 'bg-transparent border-gray-300'
+                  }`} />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Notes</label>
+            <textarea name="media.notes" value={formData.media.notes} onChange={handleInputChange} className={gTextarea} rows={2} placeholder="Any additional notes…" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+
+  const renderStep3 = () => {
+    const gInput = 'w-full px-4 py-2.5 bg-white/70 backdrop-blur-sm border border-white/60 rounded-xl text-heading placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-400/40 transition-all'
+    const gTextarea = `${gInput} resize-none`
+    const gSelect = `${gInput} cursor-pointer`
+
+    return (
+      <div className="space-y-8">
+        <h3 className="text-xl font-montserrat font-semibold text-heading">Physical Profile</h3>
+
+        {/* ── Accessibility ── */}
+        <div className="bg-violet-50/50 border border-violet-100/60 rounded-2xl p-5 space-y-4">
+          <div className="flex items-start gap-3 pb-3 border-b border-violet-100/60">
+            <div className="w-1 h-8 bg-gradient-to-b from-violet-500 to-purple-600 rounded-full mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-base font-montserrat font-bold text-heading flex items-center gap-2">
+                <Eye className="w-4 h-4 text-violet-500" /> Accessibility Needs
+              </p>
+              <p className="text-xs text-label mt-0.5">Select any support you need day-to-day</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {[{
+              checked: formData.accessibility.textToSpeech,
+              label: 'I need text-to-speech support',
+              onChange: () => handleAccessibilityChange('textToSpeech')
+            }, {
+              checked: formData.accessibility.motorSupport,
+              label: 'I need motor support assistance',
+              onChange: () => handleAccessibilityChange('motorSupport')
+            }].map(({ checked, label, onChange }) => (
+              <button key={label} type="button" onClick={onChange}
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${checked
+                  ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white border-transparent shadow-glow'
+                  : 'bg-white/60 border-white/60 text-body hover:border-violet-300 hover:text-violet-700'
+                  }`}>
+                <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 transition-all ${checked ? 'bg-white border-white' : 'bg-transparent border-gray-300'
+                  }`} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Body measurements ── */}
+        <div className="bg-blue-50/50 border border-blue-100/60 rounded-2xl p-5 space-y-5">
+          <div className="flex items-start gap-3 pb-3 border-b border-blue-100/60">
+            <div className="w-1 h-8 bg-gradient-to-b from-blue-400 to-indigo-500 rounded-full mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-base font-montserrat font-bold text-heading flex items-center gap-2">
+                <Dumbbell className="w-4 h-4 text-blue-500" /> Body Measurements
+              </p>
+              <p className="text-xs text-label mt-0.5">Optional — helps with wellness recommendations</p>
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-5">
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Body Weight (kg)</label>
+              <input type="number" name="bodyWeightKg" value={formData.bodyWeightKg} onChange={handleInputChange} className={gInput} placeholder="e.g., 45" min="0" max="500" step="0.1" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Height</label>
+              <div className="flex gap-2">
+                <select name="heightFeet" value={formData.heightFeet} onChange={handleInputChange} className={`${gSelect} flex-1`}>
+                  <option value="">Feet</option>
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(f => <option key={f} value={f}>{f}'</option>)}
+                </select>
+                <select name="heightInches" value={formData.heightInches} onChange={handleInputChange} className={`${gSelect} flex-1`}>
+                  <option value="">Inches</option>
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => <option key={i} value={i}>{i}"</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Medical ── */}
+        <div className="bg-rose-50/50 border border-rose-100/60 rounded-2xl p-5 space-y-4">
+          <div className="flex items-start gap-3 pb-3 border-b border-rose-100/60">
+            <div className="w-1 h-8 bg-gradient-to-b from-rose-400 to-red-500 rounded-full mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-base font-montserrat font-bold text-heading">Medical Information</p>
+              <p className="text-xs text-label mt-0.5">This helps us personalise your support</p>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Medical Condition <span className="text-rose-500">*</span></label>
+            <FormField
+              label="Medical Condition"
+              name="medicalCondition"
+              type="select"
+              value={formData.medicalCondition}
               onChange={handleInputChange}
-              className="input-field"
-              min="0"
-              max="24"
-              step="0.5"
+              options={getConstantOptions(MEDICAL_CONDITION_CONSTANTS)}
+              required
+              disabled={isLoading}
+              placeholder="Select your medical condition"
             />
           </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Notes</label>
+          <div className="space-y-1">
+            <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase">Medical Condition Notes</label>
             <textarea
-              name="sleep.notes"
-              value={formData.sleep.notes}
+              name="medicalConditionNotes"
+              value={formData.medicalConditionNotes}
               onChange={handleInputChange}
-              className="input-field"
-              rows={2}
-              placeholder="Any additional notes about your sleep..."
+              className={gTextarea}
+              rows={4}
+              placeholder="Provide additional details (optional, max 1000 characters)"
+              maxLength={1000}
             />
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h4 className="text-lg font-montserrat font-semibold text-heading flex items-center">
-            <Utensils className="w-5 h-5 mr-2 text-positive" />
-            Diet Habits
-          </h4>
-          
-          <div>
-            <label className="block text-label text-label mb-2">Daily Water Intake (ml)</label>
-            <input
-              type="number"
-              name="diet.waterIntakeMl"
-              value={formData.diet.waterIntakeMl}
-              onChange={handleInputChange}
-              className="input-field"
-              min="0"
-              max="10000"
-              step="100"
-            />
-            <p className="text-sm text-label mt-1">Recommended: 2000-3000 ml per day</p>
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Junk Food Frequency (times per day)</label>
-            <input
-              type="number"
-              name="diet.junkFoodFrequency"
-              value={formData.diet.junkFoodFrequency}
-              onChange={handleInputChange}
-              className="input-field"
-              min="0"
-              max="10"
-            />
-            <p className="text-sm text-label mt-1">How many times do you eat junk food per day? (0-10)</p>
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Meals Consumed Today</label>
-            <input
-              type="number"
-              name="diet.mealsConsumed"
-              value={formData.diet.mealsConsumed}
-              onChange={handleInputChange}
-              className="input-field"
-              min="1"
-              max="6"
-            />
-            <p className="text-sm text-label mt-1">Number of meals consumed today (1-6)</p>
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Notes</label>
-            <textarea
-              name="diet.notes"
-              value={formData.diet.notes}
-              onChange={handleInputChange}
-              className="input-field"
-              rows={2}
-              placeholder="Any additional notes about your diet..."
-            />
+            <p className="text-xs text-label text-right">{formData.medicalConditionNotes.length}/1000</p>
           </div>
         </div>
       </div>
+    )
+  }
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <h4 className="text-lg font-montserrat font-semibold text-heading flex items-center">
-            <Dumbbell className="w-5 h-5 mr-2 text-action" />
-            Exercise Habits
-          </h4>
-          
-          <div>
-            <label className="block text-label text-label mb-2">Exercise Hours Today</label>
-            <input
-              type="number"
-              name="exercise.exerciseHours"
-              value={formData.exercise.exerciseHours}
-              onChange={handleInputChange}
-              className="input-field"
-              min="0"
-              max="8"
-              step="0.5"
-            />
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Exercise Type</label>
-            <input
-              type="text"
-              name="exercise.exerciseType"
-              value={formData.exercise.exerciseType}
-              onChange={handleInputChange}
-              className="input-field"
-              placeholder="e.g., Running, Swimming, Yoga..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Intensity Level</label>
-            <select
-              name="exercise.intensityLevel"
-              value={formData.exercise.intensityLevel}
-              onChange={handleInputChange}
-              className="input-field"
-            >
-              <option value="LIGHT">Light</option>
-              <option value="MODERATE">Moderate</option>
-              <option value="VIGOROUS">Vigorous</option>
-              <option value="EXTREME">Extreme</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Calories Burned</label>
-            <input
-              type="number"
-              name="exercise.caloriesBurned"
-              value={formData.exercise.caloriesBurned}
-              onChange={handleInputChange}
-              className="input-field"
-              min="0"
-              max="2000"
-              step="10"
-            />
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Notes</label>
-            <textarea
-              name="exercise.notes"
-              value={formData.exercise.notes}
-              onChange={handleInputChange}
-              className="input-field"
-              rows={2}
-              placeholder="Any additional notes about your exercise..."
-            />
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h4 className="text-lg font-montserrat font-semibold text-heading flex items-center">
-            <Monitor className="w-5 h-5 mr-2 text-accent" />
-            Screen Time
-          </h4>
-          
-          <div>
-            <label className="block text-label text-label mb-2">Total Screen Time Today (hours)</label>
-            <input
-              type="number"
-              name="screen.totalScreenTimeHours"
-              value={formData.screen.totalScreenTimeHours}
-              onChange={handleInputChange}
-              className="input-field"
-              min="0"
-              max="24"
-              step="0.5"
-            />
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Pre-Sleep Screen Time (minutes)</label>
-            <input
-              type="number"
-              name="screen.preSleepScreenTimeMinutes"
-              value={formData.screen.preSleepScreenTimeMinutes}
-              onChange={handleInputChange}
-              className="input-field"
-              min="0"
-              max="180"
-            />
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Primary Device Type</label>
-            <select
-              name="screen.deviceType"
-              value={formData.screen.deviceType}
-              onChange={handleInputChange}
-              className="input-field"
-            >
-              <option value="MOBILE">Mobile Phone</option>
-              <option value="TABLET">Tablet</option>
-              <option value="LAPTOP">Laptop</option>
-              <option value="DESKTOP">Desktop Computer</option>
-              <option value="TV">Television</option>
-              <option value="GAMING_CONSOLE">Gaming Console</option>
-              <option value="SMARTWATCH">Smartwatch</option>
-            </select>
-          </div>
-
-          <div className="space-y-3">
-            <label className="flex items-center space-x-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.screen.screenTimeBeforeBed}
-                onChange={() => setFormData(prev => ({
-                  ...prev,
-                  screen: { ...prev.screen, screenTimeBeforeBed: !prev.screen.screenTimeBeforeBed }
-                }))}
-                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-              />
-              <span className="text-body">Used screen before bed</span>
-            </label>
-            
-            <label className="flex items-center space-x-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.screen.blueLightFilterUsed}
-                onChange={() => setFormData(prev => ({
-                  ...prev,
-                  screen: { ...prev.screen, blueLightFilterUsed: !prev.screen.blueLightFilterUsed }
-                }))}
-                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-              />
-              <span className="text-body">Used blue light filter</span>
-            </label>
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Notes</label>
-            <textarea
-              name="screen.notes"
-              value={formData.screen.notes}
-              onChange={handleInputChange}
-              className="input-field"
-              rows={2}
-              placeholder="Any additional notes about your screen time..."
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h4 className="text-lg font-montserrat font-semibold text-heading flex items-center">
-          <Eye className="w-5 h-5 mr-2 text-primary" />
-          Media Consumption
-        </h4>
-        
-        <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-label text-label mb-2">Platform</label>
-            <select
-              name="media.platform"
-              value={formData.media.platform}
-              onChange={handleInputChange}
-              className="input-field"
-            >
-              <option value="YOUTUBE">YouTube</option>
-              <option value="INSTAGRAM">Instagram</option>
-              <option value="TIKTOK">TikTok</option>
-              <option value="REDDIT">Reddit</option>
-              <option value="TWITTER">Twitter/X</option>
-              <option value="FACEBOOK">Facebook</option>
-              <option value="SNAPCHAT">Snapchat</option>
-              <option value="PINTEREST">Pinterest</option>
-              <option value="TWITCH">Twitch</option>
-              <option value="NETFLIX">Netflix</option>
-              <option value="DISNEY_PLUS">Disney+</option>
-              <option value="AMAZON_PRIME">Amazon Prime</option>
-              <option value="VIDEO_GAMES">Video Games</option>
-              <option value="PODCASTS">Podcasts</option>
-              <option value="AUDIOBOOKS">Audiobooks</option>
-              <option value="EBOOKS">E-books</option>
-              <option value="ONLINE_NEWS">Online News</option>
-              <option value="BLOGS">Blogs</option>
-              <option value="EDUCATIONAL_APPS">Educational Apps</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Content Type</label>
-            <input
-              type="text"
-              name="media.contentType"
-              value={formData.media.contentType}
-              onChange={handleInputChange}
-              className="input-field"
-              placeholder="e.g., Videos, Stories, Posts..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Duration (minutes)</label>
-            <input
-              type="number"
-              name="media.durationMinutes"
-              value={formData.media.durationMinutes}
-              onChange={handleInputChange}
-              className="input-field"
-              min="0"
-              max="1440"
-            />
-          </div>
-
-          <div>
-            <label className="block text-label text-label mb-2">Content Category</label>
-            <input
-              type="text"
-              name="media.contentCategory"
-              value={formData.media.contentCategory}
-              onChange={handleInputChange}
-              className="input-field"
-              placeholder="e.g., Entertainment, Education, News..."
-            />
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <label className="flex items-center space-x-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.media.isEducational}
-              onChange={() => setFormData(prev => ({
-                ...prev,
-                media: { ...prev.media, isEducational: !prev.media.isEducational }
-              }))}
-              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-            />
-            <span className="text-body">This content is educational</span>
-          </label>
-          
-          <label className="flex items-center space-x-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.media.ageAppropriate}
-              onChange={() => setFormData(prev => ({
-                ...prev,
-                media: { ...prev.media, ageAppropriate: !prev.media.ageAppropriate }
-              }))}
-              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-            />
-            <span className="text-body">This content is age-appropriate</span>
-          </label>
-        </div>
-
-        <div>
-          <label className="block text-label text-label mb-2">Notes</label>
-          <textarea
-            name="media.notes"
-            value={formData.media.notes}
-            onChange={handleInputChange}
-            className="input-field"
-            rows={2}
-            placeholder="Any additional notes about your media consumption..."
-          />
-        </div>
-      </div>
-    </div>
-  )
-
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <h3 className="text-xl font-montserrat font-semibold text-heading">Physical Profile</h3>
-      
-      <div className="space-y-4">
-        <h4 className="text-lg font-montserrat font-semibold text-heading flex items-center">
-          <Eye className="w-5 h-5 mr-2 text-primary" />
-          Accessibility Needs
-        </h4>
-        
-        <div className="space-y-3">
-          <label className="flex items-center space-x-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.accessibility.textToSpeech}
-              onChange={() => handleAccessibilityChange('textToSpeech')}
-              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-            />
-            <span className="text-body">I need text-to-speech support</span>
-          </label>
-          
-          <label className="flex items-center space-x-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.accessibility.motorSupport}
-              onChange={() => handleAccessibilityChange('motorSupport')}
-              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-            />
-            <span className="text-body">I need motor support assistance</span>
-          </label>
-        </div>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-label text-label mb-2">Body Weight (in kg) *</label>
-          <input
-            type="number"
-            name="bodyWeightKg"
-            value={formData.bodyWeightKg}
-            onChange={handleInputChange}
-            className="input-field"
-            placeholder="e.g., 45"
-            min="0"
-            max="500"
-            step="0.1"
-          />
-          <p className="text-sm text-label mt-1">Optional: Enter your body weight in kilograms</p>
-        </div>
-
-        <div>
-          <label className="block text-label text-label mb-2">Height *</label>
-          <div className="flex space-x-2">
-            <select
-              name="heightFeet"
-              value={formData.heightFeet}
-              onChange={handleInputChange}
-              className="input-field flex-1"
-            >
-              <option value="">Feet</option>
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((feet) => (
-                <option key={feet} value={feet}>{feet}'</option>
-              ))}
-            </select>
-            <select
-              name="heightInches"
-              value={formData.heightInches}
-              onChange={handleInputChange}
-              className="input-field flex-1"
-            >
-              <option value="">Inches</option>
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((inches) => (
-                <option key={inches} value={inches}>{inches}"</option>
-              ))}
-            </select>
-          </div>
-          <p className="text-sm text-label mt-1">Optional: Select your height</p>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-label text-label mb-2">Medical Condition *</label>
-        <FormField
-          name="medicalCondition"
-          type="select"
-          value={formData.medicalCondition}
-          onChange={handleInputChange}
-          options={getConstantOptions(MEDICAL_CONDITION_CONSTANTS)}
-          required
-          disabled={isLoading}
-          placeholder="Select your medical condition"
-        />
-        <p className="text-sm text-label mt-1">Please select your primary medical condition</p>
-      </div>
-
-      <div>
-        <label className="block text-label text-label mb-2">Medical Condition Notes</label>
-        <textarea
-          name="medicalConditionNotes"
-          value={formData.medicalConditionNotes}
-          onChange={handleInputChange}
-          className="input-field"
-          rows={4}
-          placeholder="Provide additional details about your medical condition (optional)"
-          maxLength={1000}
-        />
-        <p className="text-sm text-label mt-1">Optional: Add any additional notes about your medical condition (max 1000 characters)</p>
-      </div>
-    </div>
-  )
+  const STEP_LABELS = ['Hobbies & Aspirations', 'Habit Profile', 'Physical Profile']
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center">
-              <Brain className="w-7 h-7 text-white" />
-            </div>
-            <span className="text-3xl font-montserrat font-bold text-heading">SageFlow</span>
-          </div>
-          
-          <h1 className="text-h1 text-heading mb-2">Complete Your Holistic Profile</h1>
-          <p className="text-body text-body">Help us understand you better to provide personalized support</p>
-          <p className="text-sm text-label mt-2">Please complete all steps to access your dashboard</p>
-        </div>
+    <div className="min-h-screen flex flex-col relative overflow-x-hidden bg-gradient-to-br from-purple-50 via-violet-50 to-pink-50">
 
-        {/* Progress Steps */}
-        <div className="flex items-center justify-between mb-8">
-          {[1, 2, 3].map((step) => (
-            <div key={step} className="flex items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                step <= currentStep 
-                  ? 'bg-primary text-white' 
-                  : 'bg-gray-200 text-gray-500'
-              }`}>
-                {step < currentStep ? <CheckCircle className="w-5 h-5" /> : step}
+      {/* Ambient orbs */}
+      <div className="fixed -top-40 -left-40 w-[500px] h-[500px] bg-gradient-to-br from-purple-300/20 to-violet-400/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="fixed -bottom-40 -right-40 w-[600px] h-[600px] bg-gradient-to-br from-pink-300/15 to-purple-400/15 blur-[130px] rounded-full pointer-events-none" />
+
+      {/* ── Navbar (full-width, consistent with all auth pages) ── */}
+      <AuthNavbar backTo="/dashboard" backLabel="Dashboard" />
+
+      <div className="max-w-4xl mx-auto w-full px-6 pb-10 relative z-10">
+
+        {/* ── Page title ── */}
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="text-center mb-8"
+        >
+          <h1 className="text-h1 text-heading mb-1">Complete Your Holistic Profile</h1>
+          <p className="text-body text-body">Help us understand you better to provide personalized support</p>
+          <p className="text-sm text-label mt-1">Please complete all steps to access your dashboard</p>
+        </motion.div>
+
+        {/* ── Step Indicators ── */}
+        <div className="flex items-start justify-center mb-8">
+          {[1, 2, 3].map((step, idx) => (
+            <React.Fragment key={step}>
+              <div className="flex flex-col items-center">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${step < currentStep
+                  ? 'bg-violet-600 text-white'
+                  : step === currentStep
+                    ? 'bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-glow'
+                    : 'bg-white/60 border border-white/60 text-gray-400'
+                  }`}>
+                  {step < currentStep ? <CheckCircle className="w-4 h-4" /> : step}
+                </div>
+                <span className={`text-[10px] mt-1.5 font-semibold tracking-wide whitespace-nowrap ${step === currentStep ? 'text-violet-600' : 'text-gray-400'
+                  }`}>
+                  {STEP_LABELS[idx]}
+                </span>
               </div>
-              {step < 3 && (
-                <div className={`w-16 h-1 mx-2 ${
-                  step < currentStep ? 'bg-primary' : 'bg-gray-200'
-                }`} />
+              {idx < 2 && (
+                <div className={`flex-1 h-0.5 mx-3 mt-4 rounded-full transition-all duration-500 ${step < currentStep ? 'bg-violet-500' : 'bg-white/60'
+                  }`} />
               )}
-            </div>
+            </React.Fragment>
           ))}
         </div>
 
-        {/* Step Labels */}
-        <div className="flex justify-between mb-6 text-sm font-medium text-label">
-          <span className={currentStep === 1 ? 'text-primary' : ''}>Hobbies & Aspirations</span>
-          <span className={currentStep === 2 ? 'text-primary' : ''}>Habit Profile</span>
-          <span className={currentStep === 3 ? 'text-primary' : ''}>Physical Profile</span>
-        </div>
-
-        {/* Form */}
-        <div className="card">
-          {isSubmitted ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-positive/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-8 h-8 text-positive" />
-              </div>
-              <h3 className="text-xl font-montserrat font-semibold text-heading mb-4">Profile Completed Successfully!</h3>
-              <p className="text-body text-body mb-6">
-                Your holistic profile has been saved. We'll use this information to provide personalized support and recommendations.
-              </p>
-              <div className="space-y-4">
-                <button
+        {/* ── Form card ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <div className="glass-card p-8">
+            {isSubmitted ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4 }}
+                className="text-center py-10"
+              >
+                <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-glow">
+                  <CheckCircle className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-montserrat font-semibold text-heading mb-3">Profile Completed Successfully!</h3>
+                <p className="text-sm text-body mb-8 leading-relaxed max-w-md mx-auto">
+                  Your holistic profile has been saved. We'll use this information to provide personalized support and recommendations.
+                </p>
+                <motion.button
                   onClick={() => navigate('/dashboard', { replace: true })}
-                  className="btn-primary w-full"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="bg-gradient-to-r from-violet-600 to-purple-600 text-white font-montserrat font-semibold px-8 py-3 rounded-xl shadow-glow hover:opacity-90 transition-all duration-200"
                 >
                   Go to Dashboard
-                </button>
-                <p className="text-sm text-label">
-                  You can update your profile anytime from your dashboard
-                </p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Error Message */}
-              {error && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-input flex items-center space-x-3">
-                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  <span className="text-sm text-red-700">{error}</span>
-                </div>
-              )}
+                </motion.button>
+                <p className="text-xs text-label mt-4">You can update your profile anytime from your dashboard</p>
+              </motion.div>
+            ) : (
+              <>
+                {/* Error message */}
+                {error && (
+                  <ErrorMessage
+                    message={error}
+                    onClose={() => setError('')}
+                    className="mb-6"
+                  />
+                )}
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {currentStep === 1 && renderStep1()}
-                {currentStep === 2 && renderStep2()}
-                {currentStep === 3 && renderStep3()}
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <AnimatePresence mode="wait">
+                    {currentStep === 1 && (
+                      <motion.div key="s1" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.22 }}>
+                        {renderStep1()}
+                      </motion.div>
+                    )}
+                    {currentStep === 2 && (
+                      <motion.div key="s2" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.22 }}>
+                        {renderStep2()}
+                      </motion.div>
+                    )}
+                    {currentStep === 3 && (
+                      <motion.div key="s3" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.22 }}>
+                        {renderStep3()}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                {/* Navigation Buttons */}
-                <div className="flex justify-between pt-6">
-                  {currentStep > 1 && (
-                    <button
-                      type="button"
-                      onClick={prevStep}
-                      className="btn-outline"
-                      disabled={isLoading}
-                    >
-                      Previous
-                    </button>
-                  )}
-                  
-                  {currentStep < 3 ? (
-                    <button
-                      type="button"
-                      onClick={nextStep}
-                      className="btn-primary ml-auto"
-                      disabled={isLoading}
-                    >
-                      Next
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      className="btn-primary ml-auto flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <>
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Saving Profile...</span>
-                        </>
-                      ) : (
-                        <span>Complete Profile</span>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </form>
-            </>
-          )}
-        </div>
+                  {/* Navigation */}
+                  <div className="flex justify-between items-center pt-6 border-t border-white/40">
+                    {currentStep > 1 ? (
+                      <button
+                        type="button"
+                        onClick={prevStep}
+                        disabled={isLoading}
+                        className="px-5 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-white/60 text-sm font-semibold text-heading hover:bg-white/85 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        ← Previous
+                      </button>
+                    ) : <div />}
 
-        {/* Progress Indicator */}
-        <div className="text-center mt-6">
-          <p className="text-sm text-label">
-            Step {currentStep} of 3 - {Math.round((currentStep / 3) * 100)}% Complete
+                    {currentStep < 3 ? (
+                      <motion.button
+                        type="button"
+                        onClick={nextStep}
+                        disabled={isLoading}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-montserrat font-semibold rounded-xl text-sm shadow-glow transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next →
+                      </motion.button>
+                    ) : (
+                      <motion.button
+                        type="submit"
+                        disabled={isLoading}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-montserrat font-semibold rounded-xl text-sm shadow-glow transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isLoading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Saving Profile…</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            Complete Profile
+                          </>
+                        )}
+                      </motion.button>
+                    )}
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Progress indicator */}
+        {!isSubmitted && (
+          <p className="text-center text-xs text-label mt-5">
+            Step {currentStep} of 3 — {Math.round((currentStep / 3) * 100)}% complete
           </p>
-        </div>
+        )}
       </div>
     </div>
   )
