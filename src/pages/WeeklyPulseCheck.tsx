@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Heart, CheckCircle, Smile, Frown, Meh } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { CheckCircle, Heart, Shield, Sparkles } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 import { apiService } from '../services/api'
 import { WeeklyPulseRequest } from '../services/types'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ErrorMessage from '../components/common/ErrorMessage'
+import AuthNavbar from '../components/common/AuthNavbar'
+
+// ── Rating metadata ──────────────────────────────────────────────
+const RATINGS = [
+  { value: 1, emoji: '😞', label: 'Very Poor', gradient: 'from-red-500 to-rose-600', ring: 'ring-red-400', text: 'text-red-600', bg: 'bg-red-50' },
+  { value: 2, emoji: '😕', label: 'Poor', gradient: 'from-orange-400 to-amber-500', ring: 'ring-orange-400', text: 'text-orange-600', bg: 'bg-orange-50' },
+  { value: 3, emoji: '😐', label: 'Neutral', gradient: 'from-amber-400 to-yellow-500', ring: 'ring-amber-400', text: 'text-amber-600', bg: 'bg-amber-50' },
+  { value: 4, emoji: '🙂', label: 'Good', gradient: 'from-teal-400 to-emerald-500', ring: 'ring-teal-400', text: 'text-teal-700', bg: 'bg-teal-50' },
+  { value: 5, emoji: '😄', label: 'Excellent', gradient: 'from-violet-500 to-purple-600', ring: 'ring-violet-400', text: 'text-violet-700', bg: 'bg-violet-50' },
+]
 
 const WeeklyPulseCheck: React.FC = () => {
   const navigate = useNavigate()
@@ -22,350 +33,319 @@ const WeeklyPulseCheck: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true)
-        
-        // Check if user can submit
-        // 403 = user is not a student (e.g. admin/teacher) → treat as "cannot submit"
         try {
           const canSubmitResult = await apiService.canSubmitPulse()
           setCanSubmit(canSubmitResult)
         } catch (err: any) {
-          const status = err?.status
-          if (status === 403) {
-            // Non-student user – they simply can't submit pulses
-            setCanSubmit(false)
-          } else {
-            throw err // re-throw unexpected errors
-          }
+          if (err?.status === 403) setCanSubmit(false)
+          else throw err
         }
-
-        // Try to get current week's pulse
-        // 404 = no pulse submitted this week (normal)
-        // 403 = non-student user (already handled above, just skip)
         try {
           const pulse = await apiService.getCurrentWeekPulse()
           setCurrentPulse(pulse)
-          if (pulse?.rating) {
-            setRating(pulse.rating)
-          }
+          if (pulse?.rating) setRating(pulse.rating)
         } catch (err: any) {
-          const status = err?.status
-          if (status === 404 || status === 403) {
-            // No pulse for this week or not a student – that's okay
-            console.log('No current pulse found')
-          } else {
-            throw err
-          }
+          if (err?.status !== 404 && err?.status !== 403) throw err
         }
-      } catch (error) {
-        console.error('Failed to fetch pulse check data:', error)
+      } catch {
         setError('Failed to load pulse check. Please try again.')
       } finally {
         setLoading(false)
       }
     }
-
     fetchData()
   }, [])
 
-  // Handle rating selection
   const handleRatingChange = (value: number) => {
     setRating(value)
     setError('')
   }
 
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!rating) {
-      setError('Please select a rating before submitting.')
-      return
-    }
-
-    if (!canSubmit) {
-      setError('You have already submitted your weekly pulse check for this week.')
-      return
-    }
-
+    if (!rating) { setError('Please select a rating before submitting.'); return }
+    if (!canSubmit) { setError('You have already submitted your weekly pulse check for this week.'); return }
     try {
       setSubmitting(true)
       setError('')
-
-      const request: WeeklyPulseRequest = {
-        rating: rating
-      }
-
+      const request: WeeklyPulseRequest = { rating }
       await apiService.submitWeeklyPulse(request)
-      
       setSuccess(true)
-      
-      // Redirect to dashboard after a delay
-      setTimeout(() => {
-        navigate('/dashboard')
-      }, 3000)
+      setTimeout(() => navigate('/dashboard'), 3000)
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to submit pulse check. Please try again.'
-      setError(errorMessage)
+      setError(error instanceof Error ? error.message : 'Failed to submit. Please try again.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  // Get rating emoji
-  const getRatingEmoji = (value: number) => {
-    if (value >= 4) return <Smile className="w-8 h-8 text-green-500" />
-    if (value >= 3) return <Meh className="w-8 h-8 text-yellow-500" />
-    return <Frown className="w-8 h-8 text-red-500" />
-  }
+  const selectedMeta = RATINGS.find(r => r.value === rating)
 
-  // Get rating label
-  const getRatingLabel = (value: number) => {
-    const labels: Record<number, string> = {
-      1: 'Very Poor',
-      2: 'Poor',
-      3: 'Neutral',
-      4: 'Good',
-      5: 'Excellent'
-    }
-    return labels[value] || ''
-  }
-
-  // Get rating color
-  const getRatingColor = (value: number) => {
-    if (value >= 4) return 'text-green-600 border-green-500'
-    if (value >= 3) return 'text-yellow-600 border-yellow-500'
-    return 'text-red-600 border-red-500'
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    )
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-6">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-montserrat font-semibold text-heading mb-2">Check-in Complete!</h2>
-          <p className="text-body text-body mb-6">
-            Thank you for taking the time to check in with us. Your response helps us understand your well-being 
-            and provide better support throughout your academic journey.
-          </p>
-          
-          <div className="bg-white p-6 rounded-input border-2 border-green-200 mb-6">
-            <p className="text-sm text-label mb-2">Your Rating:</p>
-            <div className="flex items-center justify-center space-x-2">
-              {rating && getRatingEmoji(rating)}
-              <p className="text-lg font-montserrat font-semibold text-green-600">
-                {rating}/5 - {getRatingLabel(rating)}
-              </p>
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-input border-2 border-blue-200 mb-6">
-            <p className="text-sm text-label mb-2">Next Check-in:</p>
-            <p className="text-lg font-montserrat font-semibold text-blue-600">
-              Next week
-            </p>
-          </div>
-          
-          <div className="space-y-3">
-            <Link to="/dashboard" className="btn-primary w-full block text-center">
-              Return to Dashboard
-            </Link>
-            <Link to="/wellness" className="btn-outline w-full block text-center">
-              View My Wellness
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // If user cannot submit or already has a pulse for this week, show the "Already Submitted" view
-  if (!canSubmit || currentPulse) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-6">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-xl font-montserrat font-semibold text-heading mb-2">Already Submitted</h2>
-          <p className="text-body text-body mb-4">
-            You have already submitted your weekly pulse check for this week. Please check back next week.
-          </p>
-          
-          {currentPulse && (
-            <div className="bg-white p-6 rounded-input border-2 border-green-200 mb-6">
-              <p className="text-sm text-label mb-2">Your Rating This Week:</p>
-              <div className="flex items-center justify-center space-x-2">
-                {getRatingEmoji(currentPulse.rating)}
-                <p className="text-lg font-montserrat font-semibold text-green-600">
-                  {currentPulse.rating}/5 - {getRatingLabel(currentPulse.rating)}
-                </p>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Submitted on {new Date(currentPulse.createdAt).toLocaleDateString()}
-              </p>
-            </div>
-          )}
-          
-          <div className="space-y-3">
-            <Link to="/dashboard" className="btn-primary w-full block text-center">
-              Return to Dashboard
-            </Link>
-            <Link to="/wellness" className="btn-outline w-full block text-center">
-              View My Wellness
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <nav className="bg-white shadow-soft">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-positive to-accent rounded-full flex items-center justify-center">
-                <Heart className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-montserrat font-bold text-heading">SageFlow</span>
-            </div>
-            
-            <Link 
-              to="/dashboard" 
-              className="text-primary hover:text-primary/80 font-medium transition-colors"
-            >
-              ← Back to Dashboard
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-h1 text-heading mb-2">Weekly Wellness Check-in</h1>
-          <p className="text-body text-body">
-            Take a moment to reflect on how you're feeling this week. Your response helps us understand your well-being and provide better support.
-          </p>
-        </div>
-
-        {/* Error Message */}
-        {error && <ErrorMessage message={error} />}
-
-        {/* Rating Form */}
-        <div className="card">
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div>
-              <div className="text-center mb-8">
-                <h2 className="text-2xl font-montserrat font-semibold text-heading mb-4">
-                  How would you rate your overall well-being this week?
-                </h2>
-                <p className="text-body text-body">
-                  Select a rating from 1 (Very Poor) to 5 (Excellent)
-                </p>
-              </div>
-
-              {/* Rating Scale Labels */}
-              <div className="flex justify-between text-sm text-label mb-6">
-                <span>Very Poor</span>
-                <span>Excellent</span>
-              </div>
-
-              {/* Rating Buttons */}
-              <div className="flex justify-center items-center space-x-4 mb-6">
-                {[1, 2, 3, 4, 5].map((value) => {
-                  const isSelected = rating === value
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => handleRatingChange(value)}
-                      className={`w-16 h-16 rounded-full border-4 flex flex-col items-center justify-center transition-all ${
-                        isSelected
-                          ? `${getRatingColor(value)} bg-white shadow-lg scale-110`
-                          : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-                      }`}
-                    >
-                      {getRatingEmoji(value)}
-                      <span className={`text-xs font-semibold mt-1 ${isSelected ? getRatingColor(value).split(' ')[0] : 'text-gray-500'}`}>
-                        {value}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-
-              {/* Selected Rating Display */}
-              {rating && (
-                <div className="text-center">
-                  <div className="inline-flex items-center space-x-2 px-6 py-3 bg-primary/10 rounded-full">
-                    {getRatingEmoji(rating)}
-                    <span className={`text-lg font-semibold ${getRatingColor(rating).split(' ')[0]}`}>
-                      {rating}/5 - {getRatingLabel(rating)}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Submit Button */}
-            <div className="pt-6">
-              <button
-                type="submit"
-                disabled={submitting || !rating}
-                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-              >
-                {submitting ? (
-                  <>
-                    <LoadingSpinner size="sm" />
-                    <span className="ml-2">Submitting...</span>
-                  </>
-                ) : (
-                  'Submit Check-in'
-                )}
-              </button>
-              
-              {!rating && (
-                <p className="text-sm text-label text-center mt-3">
-                  Please select a rating before submitting
-                </p>
-              )}
-            </div>
-          </form>
-        </div>
-
-        {/* Additional Information */}
-        <div className="mt-8 grid md:grid-cols-2 gap-6">
-          <div className="card bg-blue-50 border-blue-200">
-            <h3 className="text-lg font-montserrat font-semibold text-heading mb-3">Why We Check In</h3>
-            <div className="space-y-2 text-sm text-body">
-              <p>• Monitor your emotional well-being over time</p>
-              <p>• Identify patterns in your overall wellness</p>
-              <p>• Provide personalized support and resources</p>
-              <p>• Help you develop healthy coping strategies</p>
-            </div>
-          </div>
-
-          <div className="card bg-green-50 border-green-200">
-            <h3 className="text-lg font-montserrat font-semibold text-heading mb-3">Your Privacy</h3>
-            <div className="space-y-2 text-sm text-body">
-              <p>• All responses are kept confidential</p>
-              <p>• Only you and authorized staff can see your data</p>
-              <p>• Used solely for your well-being and support</p>
-              <p>• One submission per week to track your progress</p>
-            </div>
-          </div>
-        </div>
+  // ── Page shell (shared) ──────────────────────────────────────────
+  const Shell = ({ children }: { children: React.ReactNode }) => (
+    <div className="min-h-screen flex flex-col relative overflow-x-hidden bg-gradient-to-br from-purple-50 via-violet-50 to-pink-50">
+      {/* Ambient orbs */}
+      <div className="fixed -top-40 -left-40 w-[500px] h-[500px] bg-gradient-to-br from-purple-300/20 to-violet-400/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="fixed -bottom-40 -right-40 w-[600px] h-[600px] bg-gradient-to-br from-pink-300/15 to-purple-400/15 blur-[130px] rounded-full pointer-events-none" />
+      <AuthNavbar backTo="/dashboard" backLabel="Dashboard" />
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 relative z-10">
+        {children}
       </div>
     </div>
+  )
+
+  // ── Loading ──────────────────────────────────────────────────────
+  if (loading) return (
+    <Shell>
+      <LoadingSpinner size="lg" />
+    </Shell>
+  )
+
+  // ── Success ──────────────────────────────────────────────────────
+  if (success) return (
+    <Shell>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="glass-card p-10 max-w-md w-full text-center"
+      >
+        <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-glow">
+          <CheckCircle className="w-8 h-8 text-white" />
+        </div>
+        <h2 className="text-xl font-montserrat font-bold text-heading mb-2">Check-in Complete!</h2>
+        <p className="text-sm text-body mb-6 leading-relaxed">
+          Thank you for checking in. We'll use this to better support you throughout your week.
+        </p>
+        {selectedMeta && (
+          <div className={`inline-flex items-center gap-3 px-5 py-3 rounded-2xl ${selectedMeta.bg} mb-6`}>
+            <span className="text-3xl">{selectedMeta.emoji}</span>
+            <span className={`text-base font-bold ${selectedMeta.text}`}>{rating}/5 — {selectedMeta.label}</span>
+          </div>
+        )}
+        <p className="text-xs text-label">Redirecting to dashboard in a moment…</p>
+      </motion.div>
+    </Shell>
+  )
+
+  // ── Already submitted ────────────────────────────────────────────
+  if (!canSubmit || currentPulse) {
+    const pulseMeta = RATINGS.find(r => r.value === currentPulse?.rating)
+    return (
+      <Shell>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass-card p-10 max-w-md w-full text-center"
+        >
+          <div className="w-16 h-16 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-md">
+            <CheckCircle className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-xl font-montserrat font-bold text-heading mb-2">Already Submitted</h2>
+          <p className="text-sm text-body mb-6 leading-relaxed">
+            You've already shared your pulse this week. Come back next week!
+          </p>
+          {currentPulse && pulseMeta && (
+            <div className={`inline-flex items-center gap-3 px-5 py-3 rounded-2xl ${pulseMeta.bg} mb-6`}>
+              <span className="text-3xl">{pulseMeta.emoji}</span>
+              <div className="text-left">
+                <p className={`text-base font-bold ${pulseMeta.text}`}>{currentPulse.rating}/5 — {pulseMeta.label}</p>
+                <p className="text-xs text-label">Submitted {new Date(currentPulse.createdAt).toLocaleDateString()}</p>
+              </div>
+            </div>
+          )}
+          <motion.button
+            onClick={() => navigate('/dashboard')}
+            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+            className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white font-montserrat font-semibold py-3 rounded-xl shadow-glow hover:opacity-90 transition-all duration-200"
+          >
+            Back to Dashboard
+          </motion.button>
+        </motion.div>
+      </Shell>
+    )
+  }
+
+  // ── Main form ────────────────────────────────────────────────────
+  return (
+    <Shell>
+      <div className="w-full max-w-2xl">
+
+        {/* Page title */}
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="text-center mb-8"
+        >
+          <h1 className="text-h1 text-heading mb-1">Weekly Wellness Check-in</h1>
+          <p className="text-body text-body max-w-lg mx-auto">
+            Take a moment to reflect on how you're feeling this week. Your response helps us understand your well-being and provide better support.
+          </p>
+        </motion.div>
+
+        {/* Error */}
+        {error && <ErrorMessage message={error} onClose={() => setError('')} className="mb-5" />}
+
+        {/* Rating card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="glass-card p-8 mb-6"
+        >
+          <form onSubmit={handleSubmit} className="space-y-8">
+
+            <div className="text-center">
+              <h2 className="text-xl font-montserrat font-bold text-heading mb-1">
+                How would you rate your overall well-being this week?
+              </h2>
+              <p className="text-sm text-label">Tap a face to select your rating</p>
+            </div>
+
+            {/* Rating buttons */}
+            <div className="flex justify-center items-end gap-3 sm:gap-5">
+              {RATINGS.map((r, idx) => {
+                const isSelected = rating === r.value
+                return (
+                  <motion.button
+                    key={r.value}
+                    type="button"
+                    onClick={() => handleRatingChange(r.value)}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 + idx * 0.06 }}
+                    whileHover={{ scale: 1.12, y: -4 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`relative flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all duration-200 ${isSelected
+                        ? `bg-gradient-to-br ${r.gradient} border-transparent shadow-glow`
+                        : 'bg-white/60 border-white/60 hover:border-violet-200 hover:bg-white/80'
+                      }`}
+                  >
+                    <span className={`text-4xl transition-all duration-200 ${isSelected ? 'filter-none' : 'grayscale opacity-70'}`}>
+                      {r.emoji}
+                    </span>
+                    <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                      {r.value}
+                    </span>
+                    <span className={`text-[10px] font-semibold leading-tight text-center transition-colors ${isSelected ? 'text-white/90' : 'text-gray-400'}`}>
+                      {r.label}
+                    </span>
+                    {isSelected && (
+                      <motion.div
+                        layoutId="selectedDot"
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow"
+                      >
+                        <div className="w-2 h-2 rounded-full bg-violet-600" />
+                      </motion.div>
+                    )}
+                  </motion.button>
+                )
+              })}
+            </div>
+
+            {/* Selection feedback */}
+            <AnimatePresence mode="wait">
+              {selectedMeta ? (
+                <motion.div
+                  key={selectedMeta.value}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  className={`flex items-center justify-center gap-3 py-3 px-6 rounded-2xl ${selectedMeta.bg}`}
+                >
+                  <span className="text-2xl">{selectedMeta.emoji}</span>
+                  <p className={`text-sm font-bold ${selectedMeta.text}`}>
+                    {selectedMeta.value}/5 — {selectedMeta.label}
+                  </p>
+                </motion.div>
+              ) : (
+                <motion.p
+                  key="hint"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center text-xs text-label"
+                >
+                  Please select a rating to continue
+                </motion.p>
+              )}
+            </AnimatePresence>
+
+            {/* Submit */}
+            <motion.button
+              type="submit"
+              disabled={submitting || !rating}
+              whileHover={rating ? { scale: 1.02 } : {}}
+              whileTap={rating ? { scale: 0.98 } : {}}
+              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white font-montserrat font-semibold py-3.5 rounded-xl shadow-glow hover:opacity-90 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Submitting…</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Submit Check-in
+                </>
+              )}
+            </motion.button>
+          </form>
+        </motion.div>
+
+        {/* Info cards */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="grid md:grid-cols-2 gap-4"
+        >
+          <div className="glass-card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center">
+                <Heart className="w-4 h-4 text-violet-600" />
+              </div>
+              <h3 className="text-sm font-montserrat font-bold text-heading">Why We Check In</h3>
+            </div>
+            <ul className="space-y-1.5 text-xs text-body">
+              {[
+                'Monitor your emotional well-being over time',
+                'Identify patterns in your overall wellness',
+                'Provide personalised support and resources',
+                'Help you develop healthy coping strategies',
+              ].map(item => (
+                <li key={item} className="flex items-start gap-2">
+                  <span className="text-violet-400 mt-0.5">•</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="glass-card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-teal-100 to-emerald-100 flex items-center justify-center">
+                <Shield className="w-4 h-4 text-teal-600" />
+              </div>
+              <h3 className="text-sm font-montserrat font-bold text-heading">Your Privacy</h3>
+            </div>
+            <ul className="space-y-1.5 text-xs text-body">
+              {[
+                'All responses are kept confidential',
+                'Only you and authorised staff can see your data',
+                'Used solely for your well-being and support',
+                'One submission per week to track your progress',
+              ].map(item => (
+                <li key={item} className="flex items-start gap-2">
+                  <span className="text-teal-400 mt-0.5">•</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </motion.div>
+      </div>
+    </Shell>
   )
 }
 

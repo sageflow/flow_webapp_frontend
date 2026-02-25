@@ -1,20 +1,27 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Brain, ArrowLeft, CheckCircle } from 'lucide-react'
+import {
+  Users, CheckCircle, User, Mail, Lock, Phone,
+  MapPin, Briefcase, Heart, Eye, EyeOff, AlertCircle, Clock, Hash
+} from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { apiService, GuardianSignupRequest } from '../services/api'
-import FormField from '../components/common/FormField'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ErrorMessage from '../components/common/ErrorMessage'
-import { 
+import AuthPageBackground from '../components/common/AuthPageBackground'
+import AuthNavbar from '../components/common/AuthNavbar'
+import {
   GENDER_CONSTANTS,
   VALIDATION_CONSTANTS
 } from '../constants'
 import { getConstantOptions, isValidEmail, isValidPassword, isValidPhone, validateRequired } from '../utils'
 
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface FormErrors {
   [key: string]: string
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
 const RELATIONSHIP_TYPE_OPTIONS = [
   { value: 'FATHER', label: 'Father' },
   { value: 'MOTHER', label: 'Mother' },
@@ -26,6 +33,44 @@ const RELATIONSHIP_TYPE_OPTIONS = [
   { value: 'OTHER', label: 'Other' }
 ]
 
+const STEPS = [
+  { id: 1, label: 'Account' },
+  { id: 2, label: 'Personal' },
+  { id: 3, label: 'Family' },
+]
+
+// ─── Shared style helpers ─────────────────────────────────────────────────────
+const glassInput = (hasError?: boolean) =>
+  `w-full pl-11 pr-4 py-3 bg-white/60 backdrop-blur-sm border ${hasError ? 'border-red-400/70' : 'border-white/60'
+  } rounded-xl text-heading placeholder-gray-400 text-sm focus:outline-none focus:ring-2 ${hasError ? 'focus:ring-red-300/40 focus:border-red-400/60' : 'focus:ring-primary/30 focus:border-primary/40'
+  } transition-all disabled:opacity-50 disabled:cursor-not-allowed`
+
+const Field: React.FC<{
+  label: string
+  error?: string
+  icon: React.ReactNode
+  children: React.ReactNode
+}> = ({ label, error, icon, children }) => (
+  <div>
+    <label className="block text-[11px] font-semibold text-heading tracking-widest uppercase mb-1.5">
+      {label}
+    </label>
+    <div className="relative">
+      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#7C3AED]">
+        {icon}
+      </span>
+      {children}
+    </div>
+    {error && (
+      <p className="mt-1.5 flex items-center gap-1 text-xs text-red-600">
+        <AlertCircle className="w-3 h-3 flex-shrink-0" />
+        {error}
+      </p>
+    )}
+  </div>
+)
+
+// ─── Component ────────────────────────────────────────────────────────────────
 const GuardianSignup: React.FC = () => {
   const [formData, setFormData] = useState({
     username: '',
@@ -51,11 +96,14 @@ const GuardianSignup: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
+  // ─── Handlers (unchanged logic) ─────────────────────────────────────────────
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
-    
+
     // Clear field error when user starts typing
     if (fieldErrors[name]) {
       setFieldErrors(prev => {
@@ -64,7 +112,7 @@ const GuardianSignup: React.FC = () => {
         return newErrors
       })
     }
-    
+
     // Clear general error
     if (error) setError('')
   }
@@ -136,7 +184,7 @@ const GuardianSignup: React.FC = () => {
       const dob = new Date(formData.dateOfBirth)
       const today = new Date()
       const age = today.getFullYear() - dob.getFullYear() - (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate()) ? 1 : 0)
-      
+
       if (dob > today) {
         errors.dateOfBirth = 'Date of birth cannot be in the future'
       } else if (age < 18) {
@@ -218,21 +266,15 @@ const GuardianSignup: React.FC = () => {
 
   const validateCurrentStep = (): boolean => {
     switch (currentStep) {
-      case 1:
-        return validateStep1()
-      case 2:
-        return validateStep2()
-      case 3:
-        return validateStep3()
-      default:
-        return false
+      case 1: return validateStep1()
+      case 2: return validateStep2()
+      case 3: return validateStep3()
+      default: return false
     }
   }
 
   const nextStep = () => {
-    if (validateCurrentStep()) {
-      setCurrentStep(prev => Math.min(prev + 1, 3))
-    }
+    if (validateCurrentStep()) setCurrentStep(prev => Math.min(prev + 1, 3))
   }
 
   const prevStep = () => {
@@ -296,348 +338,453 @@ const GuardianSignup: React.FC = () => {
     }
   }
 
+  // ─── Step panels ──────────────────────────────────────────────────────────────
   const renderStep1 = () => (
-    <div className="space-y-6">
-      <h3 className="text-xl font-montserrat font-semibold text-heading">Account Information</h3>
-      
-      <FormField
-        label="Username *"
-        name="username"
-        type="text"
-        value={formData.username}
-        onChange={handleInputChange}
-        required
-        disabled={isLoading}
-        error={fieldErrors.username}
-        placeholder="Enter your username"
-      />
+    <motion.div
+      key="step1"
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -24 }}
+      transition={{ duration: 0.22 }}
+      className="space-y-4"
+    >
+      <Field label="Username *" error={fieldErrors.username} icon={<User className="w-[18px] h-[18px]" />}>
+        <input
+          type="text"
+          name="username"
+          value={formData.username}
+          onChange={handleInputChange}
+          placeholder="Enter your username"
+          required
+          disabled={isLoading}
+          className={glassInput(!!fieldErrors.username)}
+        />
+      </Field>
 
-      <FormField
-        label="Email Address *"
-        name="email"
-        type="email"
-        value={formData.email}
-        onChange={handleInputChange}
-        required
-        disabled={isLoading}
-        error={fieldErrors.email}
-        placeholder="Enter your email address"
-      />
+      <Field label="Email Address *" error={fieldErrors.email} icon={<Mail className="w-[18px] h-[18px]" />}>
+        <input
+          type="email"
+          name="email"
+          value={formData.email}
+          onChange={handleInputChange}
+          placeholder="Enter your email address"
+          required
+          disabled={isLoading}
+          className={glassInput(!!fieldErrors.email)}
+        />
+      </Field>
 
-      <FormField
-        label="Password *"
-        name="password"
-        type="password"
-        value={formData.password}
-        onChange={handleInputChange}
-        required
-        disabled={isLoading}
-        error={fieldErrors.password}
-        placeholder="Enter your password"
-      />
+      <Field label="Password *" error={fieldErrors.password} icon={<Lock className="w-[18px] h-[18px]" />}>
+        <input
+          type={showPassword ? 'text' : 'password'}
+          name="password"
+          value={formData.password}
+          onChange={handleInputChange}
+          placeholder="Enter your password"
+          required
+          disabled={isLoading}
+          className={`${glassInput(!!fieldErrors.password)} pr-11`}
+        />
+        <button
+          type="button"
+          onClick={() => setShowPassword(p => !p)}
+          className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#7C3AED] hover:text-primary-dark transition-colors"
+          tabIndex={-1}
+          aria-label={showPassword ? 'Hide password' : 'Show password'}
+        >
+          {showPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+        </button>
+      </Field>
 
-      <FormField
-        label="Confirm Password *"
-        name="confirmPassword"
-        type="password"
-        value={formData.confirmPassword}
-        onChange={handleInputChange}
-        required
-        disabled={isLoading}
-        error={fieldErrors.confirmPassword}
-        placeholder="Confirm your password"
-      />
-    </div>
+      <Field label="Confirm Password *" error={fieldErrors.confirmPassword} icon={<Lock className="w-[18px] h-[18px]" />}>
+        <input
+          type={showConfirmPassword ? 'text' : 'password'}
+          name="confirmPassword"
+          value={formData.confirmPassword}
+          onChange={handleInputChange}
+          placeholder="Confirm your password"
+          required
+          disabled={isLoading}
+          className={`${glassInput(!!fieldErrors.confirmPassword)} pr-11`}
+        />
+        <button
+          type="button"
+          onClick={() => setShowConfirmPassword(p => !p)}
+          className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#7C3AED] hover:text-primary-dark transition-colors"
+          tabIndex={-1}
+          aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+        >
+          {showConfirmPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+        </button>
+      </Field>
+    </motion.div>
   )
 
   const renderStep2 = () => (
-    <div className="space-y-6">
-      <h3 className="text-xl font-montserrat font-semibold text-heading">Personal Information</h3>
-      
-      <div className="grid md:grid-cols-2 gap-4">
-        <FormField
-          label="First Name *"
-          name="firstName"
-          type="text"
-          value={formData.firstName}
-          onChange={handleInputChange}
-          required
-          disabled={isLoading}
-          error={fieldErrors.firstName}
-          placeholder="Enter your first name"
-        />
-
-        <FormField
-          label="Last Name *"
-          name="lastName"
-          type="text"
-          value={formData.lastName}
-          onChange={handleInputChange}
-          required
-          disabled={isLoading}
-          error={fieldErrors.lastName}
-          placeholder="Enter your last name"
-        />
+    <motion.div
+      key="step2"
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -24 }}
+      transition={{ duration: 0.22 }}
+      className="space-y-4"
+    >
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="First Name *" error={fieldErrors.firstName} icon={<User className="w-[18px] h-[18px]" />}>
+          <input
+            type="text"
+            name="firstName"
+            value={formData.firstName}
+            onChange={handleInputChange}
+            placeholder="First name"
+            required
+            disabled={isLoading}
+            className={glassInput(!!fieldErrors.firstName)}
+          />
+        </Field>
+        <Field label="Last Name *" error={fieldErrors.lastName} icon={<User className="w-[18px] h-[18px]" />}>
+          <input
+            type="text"
+            name="lastName"
+            value={formData.lastName}
+            onChange={handleInputChange}
+            placeholder="Last name"
+            required
+            disabled={isLoading}
+            className={glassInput(!!fieldErrors.lastName)}
+          />
+        </Field>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <FormField
-          label="Date of Birth *"
-          name="dateOfBirth"
-          type="date"
-          value={formData.dateOfBirth}
-          onChange={handleInputChange}
-          required
-          disabled={isLoading}
-          error={fieldErrors.dateOfBirth}
-        />
-
-        <FormField
-          label="Gender *"
-          name="gender"
-          type="select"
-          value={formData.gender}
-          onChange={handleInputChange}
-          options={getConstantOptions(GENDER_CONSTANTS.filter(g => g !== 'PREFER_NOT_TO_SAY'))}
-          required
-          disabled={isLoading}
-          error={fieldErrors.gender}
-        />
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Date of Birth *" error={fieldErrors.dateOfBirth} icon={<Clock className="w-[18px] h-[18px]" />}>
+          <input
+            type="date"
+            name="dateOfBirth"
+            value={formData.dateOfBirth}
+            onChange={handleInputChange}
+            required
+            disabled={isLoading}
+            className={glassInput(!!fieldErrors.dateOfBirth)}
+          />
+        </Field>
+        <Field label="Gender *" error={fieldErrors.gender} icon={<User className="w-[18px] h-[18px]" />}>
+          <select
+            name="gender"
+            value={formData.gender}
+            onChange={handleInputChange}
+            required
+            disabled={isLoading}
+            className={glassInput(!!fieldErrors.gender)}
+          >
+            <option value="">Select gender</option>
+            {getConstantOptions(GENDER_CONSTANTS.filter(g => g !== 'PREFER_NOT_TO_SAY')).map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </Field>
       </div>
 
-      <FormField
-        label="Phone Number *"
-        name="phoneNumber"
-        type="tel"
-        value={formData.phoneNumber}
-        onChange={handleInputChange}
-        required
-        disabled={isLoading}
-        error={fieldErrors.phoneNumber}
-        placeholder="Enter your phone number"
-      />
-
-      <FormField
-        label="Address *"
-        name="address"
-        type="textarea"
-        value={formData.address}
-        onChange={handleInputChange}
-        required
-        disabled={isLoading}
-        error={fieldErrors.address}
-        placeholder="Enter your full address"
-        rows={3}
-      />
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <FormField
-          label="Emergency Contact Name *"
-          name="emergencyContact"
-          type="text"
-          value={formData.emergencyContact}
-          onChange={handleInputChange}
-          required
-          disabled={isLoading}
-          error={fieldErrors.emergencyContact}
-          placeholder="Enter emergency contact name"
-        />
-
-        <FormField
-          label="Emergency Contact Phone *"
-          name="emergencyPhone"
+      <Field label="Phone Number *" error={fieldErrors.phoneNumber} icon={<Phone className="w-[18px] h-[18px]" />}>
+        <input
           type="tel"
-          value={formData.emergencyPhone}
+          name="phoneNumber"
+          value={formData.phoneNumber}
           onChange={handleInputChange}
+          placeholder="Enter your phone number"
           required
           disabled={isLoading}
-          error={fieldErrors.emergencyPhone}
-          placeholder="Enter emergency contact phone"
+          className={glassInput(!!fieldErrors.phoneNumber)}
         />
+      </Field>
+
+      <Field label="Address *" error={fieldErrors.address} icon={<MapPin className="w-[18px] h-[18px]" />}>
+        <textarea
+          name="address"
+          value={formData.address}
+          onChange={handleInputChange}
+          placeholder="Enter your full address"
+          required
+          disabled={isLoading}
+          rows={2}
+          className={`${glassInput(!!fieldErrors.address)} resize-none pt-2.5`}
+        />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Emergency Contact *" error={fieldErrors.emergencyContact} icon={<User className="w-[18px] h-[18px]" />}>
+          <input
+            type="text"
+            name="emergencyContact"
+            value={formData.emergencyContact}
+            onChange={handleInputChange}
+            placeholder="Contact name"
+            required
+            disabled={isLoading}
+            className={glassInput(!!fieldErrors.emergencyContact)}
+          />
+        </Field>
+        <Field label="Emergency Phone *" error={fieldErrors.emergencyPhone} icon={<Phone className="w-[18px] h-[18px]" />}>
+          <input
+            type="tel"
+            name="emergencyPhone"
+            value={formData.emergencyPhone}
+            onChange={handleInputChange}
+            placeholder="Contact phone"
+            required
+            disabled={isLoading}
+            className={glassInput(!!fieldErrors.emergencyPhone)}
+          />
+        </Field>
       </div>
-    </div>
+    </motion.div>
   )
 
   const renderStep3 = () => (
-    <div className="space-y-6">
-      <h3 className="text-xl font-montserrat font-semibold text-heading">Family & Work Information</h3>
-      
-      <FormField
-        label="Children IDs *"
-        name="childrenIds"
-        type="text"
-        value={formData.childrenIds}
-        onChange={handleInputChange}
-        required
-        disabled={isLoading}
-        error={fieldErrors.childrenIds}
-        placeholder="Enter student IDs separated by commas (e.g., 4, 5, 6)"
-      />
-      <p className="text-sm text-label -mt-4">Enter the student IDs of your children who are registered in the system</p>
-
-      <FormField
-        label="Relationship Type *"
-        name="relationshipType"
-        type="select"
-        value={formData.relationshipType}
-        onChange={handleInputChange}
-        options={RELATIONSHIP_TYPE_OPTIONS}
-        required
-        disabled={isLoading}
-        error={fieldErrors.relationshipType}
-      />
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <FormField
-          label="Job Title *"
-          name="jobTitle"
-          type="text"
-          value={formData.jobTitle}
-          onChange={handleInputChange}
-          required
-          disabled={isLoading}
-          error={fieldErrors.jobTitle}
-          placeholder="e.g., Accountant, Engineer"
-        />
-
-        <FormField
-          label="Company *"
-          name="company"
-          type="text"
-          value={formData.company}
-          onChange={handleInputChange}
-          required
-          disabled={isLoading}
-          error={fieldErrors.company}
-          placeholder="e.g., EY, Google"
-        />
+    <motion.div
+      key="step3"
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -24 }}
+      transition={{ duration: 0.22 }}
+      className="space-y-4"
+    >
+      <div>
+        <Field label="Children IDs *" error={fieldErrors.childrenIds} icon={<Hash className="w-[18px] h-[18px]" />}>
+          <input
+            type="text"
+            name="childrenIds"
+            value={formData.childrenIds}
+            onChange={handleInputChange}
+            placeholder="Enter student IDs separated by commas (e.g., 4, 5, 6)"
+            required
+            disabled={isLoading}
+            className={glassInput(!!fieldErrors.childrenIds)}
+          />
+        </Field>
+        <p className="mt-1.5 text-xs text-gray-400 pl-1">
+          Enter the student IDs of your children who are registered in the system
+        </p>
       </div>
-    </div>
+
+      <Field label="Relationship Type *" error={fieldErrors.relationshipType} icon={<Heart className="w-[18px] h-[18px]" />}>
+        <select
+          name="relationshipType"
+          value={formData.relationshipType}
+          onChange={handleInputChange}
+          required
+          disabled={isLoading}
+          className={glassInput(!!fieldErrors.relationshipType)}
+        >
+          <option value="">Select relationship</option>
+          {RELATIONSHIP_TYPE_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Job Title *" error={fieldErrors.jobTitle} icon={<Briefcase className="w-[18px] h-[18px]" />}>
+          <input
+            type="text"
+            name="jobTitle"
+            value={formData.jobTitle}
+            onChange={handleInputChange}
+            placeholder="e.g., Accountant, Engineer"
+            required
+            disabled={isLoading}
+            className={glassInput(!!fieldErrors.jobTitle)}
+          />
+        </Field>
+        <Field label="Company *" error={fieldErrors.company} icon={<Briefcase className="w-[18px] h-[18px]" />}>
+          <input
+            type="text"
+            name="company"
+            value={formData.company}
+            onChange={handleInputChange}
+            placeholder="e.g., EY, Google"
+            required
+            disabled={isLoading}
+            className={glassInput(!!fieldErrors.company)}
+          />
+        </Field>
+      </div>
+    </motion.div>
   )
 
+  // ─── Success screen ───────────────────────────────────────────────────────────
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-teal-50 to-cyan-100 py-8 px-6">
-        <div className="max-w-2xl mx-auto">
-          <div className="text-center">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-3xl font-montserrat font-bold text-heading mb-4">Account Created Successfully!</h1>
-            <p className="text-body text-body mb-6">Welcome to SageFlow! Your parent account has been created successfully.</p>
-            <Link to="/login/parent" className="btn-primary w-full">
-              Sign In to Your Account
-            </Link>
-          </div>
+      <div className="min-h-screen flex flex-col relative overflow-hidden bg-gradient-to-br from-purple-50 via-violet-50 to-pink-50">
+        <AuthPageBackground />
+        <AuthNavbar />
+        <div className="flex-1 flex items-center justify-center px-6 pb-12 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="w-full max-w-md"
+          >
+            <div className="glass-card p-10 text-center">
+              <div className="flex justify-center mb-5">
+                <div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-glow">
+                  <CheckCircle className="w-8 h-8 text-white" />
+                </div>
+              </div>
+              <h1 className="text-2xl font-montserrat font-bold text-heading mb-3">
+                Account Created!
+              </h1>
+              <p className="text-sm text-body mb-8 leading-relaxed">
+                Welcome to SageFlow! Your parent account has been created successfully.
+              </p>
+              <Link
+                to="/login/parent"
+                className="w-full inline-block text-center bg-gradient-to-r from-violet-600 to-purple-600 text-white font-montserrat font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 shadow-glow hover:opacity-90"
+              >
+                Sign In to Your Account
+              </Link>
+            </div>
+          </motion.div>
         </div>
       </div>
     )
   }
 
+  // ─── Main render ──────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-cyan-100 py-8 px-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center text-teal-600 hover:text-teal-700 transition-colors mb-4">
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Back to Home
-          </Link>
-          <div className="flex items-center justify-center space-x-3 mb-4">
-            <Brain className="w-8 h-8 text-teal-600" />
-            <h1 className="text-4xl font-montserrat font-bold text-heading">SageFlow</h1>
-          </div>
-          <h2 className="text-2xl font-montserrat font-semibold text-heading">Parent Registration</h2>
-          <p className="text-body text-body mt-2">Join our community to support your child's mental health and academic success</p>
-        </div>
+    <div className="min-h-screen flex flex-col relative overflow-hidden bg-gradient-to-br from-purple-50 via-violet-50 to-pink-50">
 
-        {/* Progress Steps */}
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center space-x-4">
-            {[1, 2, 3].map((step) => (
-              <div key={step} className="flex items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${
-                  step <= currentStep 
-                    ? 'bg-teal-600 text-white' 
-                    : 'bg-gray-200 text-gray-600'
-                }`}>
-                  {step}
-                </div>
-                {step < 3 && (
-                  <div className={`w-16 h-1 mx-2 ${
-                    step < currentStep ? 'bg-teal-600' : 'bg-gray-200'
-                  }`} />
+      {/* Animated background orbs */}
+      <AuthPageBackground />
+
+      {/* Top nav */}
+      <AuthNavbar />
+
+      {/* Content */}
+      <div className="flex-1 flex items-center justify-center px-6 pb-12 pt-2 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="w-full max-w-lg"
+        >
+          <div className="glass-card p-8">
+
+            {/* Icon badge */}
+            <div className="flex justify-center mb-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-glow">
+                <Users className="w-7 h-7 text-white" />
+              </div>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-2xl font-montserrat font-bold text-heading text-center mb-1">
+              Parent Registration
+            </h1>
+            <p className="text-sm text-body text-center mb-6">
+              Join our community to support your child's mental health and academic success
+            </p>
+
+            {/* Step indicators */}
+            <div className="flex items-center justify-center mb-7">
+              {STEPS.map((step, idx) => (
+                <React.Fragment key={step.id}>
+                  <div className="flex flex-col items-center">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${step.id < currentStep
+                        ? 'bg-violet-600 text-white'
+                        : step.id === currentStep
+                          ? 'bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-glow'
+                          : 'bg-white/60 border border-white/60 text-gray-400'
+                      }`}>
+                      {step.id < currentStep ? <CheckCircle className="w-4 h-4" /> : step.id}
+                    </div>
+                    <span className={`text-[10px] mt-1 font-semibold tracking-wide ${step.id === currentStep ? 'text-violet-600' : 'text-gray-400'
+                      }`}>
+                      {step.label}
+                    </span>
+                  </div>
+                  {idx < STEPS.length - 1 && (
+                    <div className={`flex-1 h-0.5 mx-2 mb-4 rounded-full transition-all duration-500 ${step.id < currentStep ? 'bg-violet-500' : 'bg-white/60'
+                      }`} />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Error banner */}
+            {error && (
+              <ErrorMessage
+                message={error}
+                onClose={() => setError('')}
+                className="mb-5"
+              />
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleSubmit}>
+              <AnimatePresence mode="wait">
+                {currentStep === 1 && renderStep1()}
+                {currentStep === 2 && renderStep2()}
+                {currentStep === 3 && renderStep3()}
+              </AnimatePresence>
+
+              {/* Navigation */}
+              <div className="flex justify-between items-center mt-6 pt-5 border-t border-white/40">
+                {currentStep > 1 ? (
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    disabled={isLoading}
+                    className="px-5 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm border border-white/60 text-sm font-semibold text-heading hover:bg-white/85 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    ← Previous
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                {currentStep < 3 ? (
+                  <motion.button
+                    type="button"
+                    onClick={nextStep}
+                    disabled={isLoading}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-montserrat font-semibold rounded-xl text-sm shadow-glow hover:shadow-glow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next →
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    type="submit"
+                    disabled={isLoading}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-montserrat font-semibold rounded-xl text-sm shadow-glow hover:shadow-glow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isLoading ? (
+                      <LoadingSpinner size="sm" color="white" />
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Create Account
+                      </>
+                    )}
+                  </motion.button>
                 )}
               </div>
-            ))}
+            </form>
+
+            {/* Sign in link */}
+            <p className="text-center text-sm text-body mt-5">
+              Already have an account?{' '}
+              <Link to="/login/parent" className="text-primary font-semibold hover:underline">
+                Sign in
+              </Link>
+            </p>
+
           </div>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <ErrorMessage
-            message={error}
-            onClose={() => setError('')}
-            className="mb-6"
-          />
-        )}
-
-        {/* Form */}
-        <div className="card">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {currentStep === 1 && renderStep1()}
-            {currentStep === 2 && renderStep2()}
-            {currentStep === 3 && renderStep3()}
-
-            {/* Navigation Buttons */}
-            <div className="flex justify-between pt-6">
-              {currentStep > 1 && (
-                <button
-                  type="button"
-                  onClick={prevStep}
-                  className="btn-secondary"
-                  disabled={isLoading}
-                >
-                  Previous
-                </button>
-              )}
-              
-              {currentStep < 3 ? (
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  className="btn-primary ml-auto"
-                  disabled={isLoading}
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  className="btn-primary ml-auto flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <LoadingSpinner size="sm" color="white" />
-                  ) : (
-                    <>
-                      <CheckCircle className="w-5 h-5" />
-                      <span>Create Account</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-body text-body">
-            Already have an account?{' '}
-            <Link to="/login/parent" className="text-teal-600 hover:text-teal-700 font-semibold transition-colors">
-              Sign In
-            </Link>
-          </p>
-        </div>
+        </motion.div>
       </div>
     </div>
   )
