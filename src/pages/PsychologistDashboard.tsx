@@ -1,317 +1,343 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { 
+import {
   Brain,
-  MapPin, 
-  User, 
-  Clock, 
-  Sparkles, 
-  Settings, 
+  User,
+  Clock,
   LogOut,
   Calendar,
   CheckCircle,
   XCircle,
-  GraduationCap,
-  ChevronDown
+  RefreshCw,
+  AlertCircle,
+  Mail,
+  Loader2
 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
+import { apiService } from '../services/api'
+import type { RequestedMeetingDto } from '../services/types'
 
-interface BookingRequest {
-  id: number
-  studentName: string
-  studentInitials: string
-  age: number
-  grade: string
-  appointmentTime: string
-  issue: string
-  isAffiliate: boolean
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Format UTC ISO string into a readable local time */
+const formatDateTime = (utc: string): string => {
+  try {
+    return new Date(utc).toLocaleString(undefined, {
+      month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    })
+  } catch {
+    return utc
+  }
 }
+
+/** Derive initials from a full name */
+const initials = (name: string): string =>
+  name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
+
+/** Pick a deterministic avatar colour from the name */
+const avatarColor = (name: string): string => {
+  const colors = [
+    'from-violet-500 to-purple-600',
+    'from-blue-500 to-indigo-600',
+    'from-emerald-500 to-teal-600',
+    'from-rose-500 to-pink-600',
+    'from-amber-500 to-orange-500',
+  ]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return colors[Math.abs(hash) % colors.length]
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const PsychologistDashboard: React.FC = () => {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsProfileOpen(false)
-      }
-    }
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [requests, setRequests] = useState<RequestedMeetingDto[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  // Track per-request action loading: { [requestId]: 'accept' | 'reject' | null }
+  const [actionLoading, setActionLoading] = useState<Record<number, 'accept' | 'reject' | null>>({})
 
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+  // ── Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
+        setIsProfileOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Mock data for psychologist profile
-  const psychologistProfile = {
-    name: user?.username || 'Dr. Anderson',
-    title: 'Clinical Psychologist',
-    licenseNumber: '#88291',
-    location: 'California, US',
-    yearsOfExperience: 38,
-    specialization: 'Child Well-being'
-  }
-
-  // Mock booking requests
-  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([
-    {
-      id: 1,
-      studentName: 'Alex M.',
-      studentInitials: 'AM',
-      age: 12,
-      grade: '10th',
-      appointmentTime: 'Today, 2:00 PM',
-      issue: 'Exam Anxiety',
-      isAffiliate: true
-    },
-    {
-      id: 2,
-      studentName: 'Jordan T.',
-      studentInitials: 'JT',
-      age: 11,
-      grade: '9th',
-      appointmentTime: 'Tomorrow, 10:00 AM',
-      issue: 'Peer Conflict',
-      isAffiliate: false
-    },
-    {
-      id: 3,
-      studentName: 'Casey R.',
-      studentInitials: 'CR',
-      age: 14,
-      grade: '11th',
-      appointmentTime: 'Tomorrow, 2:00 PM',
-      issue: 'Academic Stress',
-      isAffiliate: true
+  // ── Fetch booking requests
+  const fetchRequests = useCallback(async () => {
+    if (!user?.id) return
+    setIsLoading(true)
+    setFetchError(null)
+    try {
+      const data = await apiService.getRequestedMeetings(user.id)
+      setRequests(data)
+    } catch (err: unknown) {
+      setFetchError(err instanceof Error ? err.message : 'Failed to load booking requests')
+    } finally {
+      setIsLoading(false)
     }
-  ])
+  }, [user?.id])
+
+  useEffect(() => { fetchRequests() }, [fetchRequests])
+
+  // ── Accept / Reject
+  const handleAction = async (request: RequestedMeetingDto, action: 'accept' | 'reject') => {
+    if (!user?.id) return
+    setActionLoading(prev => ({ ...prev, [request.id]: action }))
+    try {
+      if (action === 'accept') {
+        await apiService.acceptMeetingRequest(request.id, user.id)
+      } else {
+        await apiService.rejectMeetingRequest(request.id, user.id)
+      }
+      // Remove from list after action
+      setRequests(prev => prev.filter(r => r.id !== request.id))
+    } catch (err: unknown) {
+      console.error(`Failed to ${action} request:`, err)
+      // Show error briefly then clear
+      setFetchError(err instanceof Error ? err.message : `Failed to ${action} request`)
+      setTimeout(() => setFetchError(null), 4000)
+    } finally {
+      setActionLoading(prev => ({ ...prev, [request.id]: null }))
+    }
+  }
 
   const handleLogout = async () => {
-    try {
-      await logout()
-      navigate('/')
-    } catch (error) {
-      console.error('Logout failed:', error)
-    }
+    await logout()
+    navigate('/')
   }
 
-  const handleApprove = (id: number) => {
-    setBookingRequests(prev => prev.filter(req => req.id !== id))
-    // TODO: Call API to approve booking
-    console.log('Approved booking:', id)
-  }
-
-  const handleDecline = (id: number) => {
-    setBookingRequests(prev => prev.filter(req => req.id !== id))
-    // TODO: Call API to decline booking
-    console.log('Declined booking:', id)
-  }
-
-  const getInitials = (name: string) => {
-    const parts = name.split(' ')
-    if (parts.length >= 2) {
-      return parts[0].charAt(0).toUpperCase() + parts[1].charAt(0).toUpperCase()
-    }
-    return name.substring(0, 2).toUpperCase()
-  }
+  const psychologistName = user?.username ? `Dr. ${user.username}` : 'Dr. Anderson'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-yellow-100">
-      {/* Header */}
-      <nav className="bg-white shadow-soft">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center">
-                <Brain className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-montserrat font-bold text-heading">SageFlow</span>
-            </div>
-            
-            {/* Profile Dropdown */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center space-x-3 hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors"
-              >
-                <div className="w-9 h-9 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                  {getInitials(psychologistProfile.name)}
-                </div>
-                <div className="hidden sm:block text-left">
-                  <p className="text-sm font-medium text-heading">{psychologistProfile.name}</p>
-                  <p className="text-xs text-label">Psychologist</p>
-                </div>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
-              </button>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-violet-50 to-pink-50">
 
-              {/* Dropdown Menu */}
+      {/* ── Navbar ── */}
+      <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-white/60 shadow-sm">
+        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-purple-700 rounded-xl flex items-center justify-center shadow-sm">
+              <Brain className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-montserrat font-bold text-lg text-heading">SageFlow</span>
+          </div>
+
+          {/* Profile dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setIsProfileOpen(p => !p)}
+              className="w-9 h-9 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center shadow-sm hover:opacity-90 transition-opacity"
+            >
+              <User className="w-4 h-4 text-white" />
+            </button>
+            <AnimatePresence>
               {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
-                  {/* Profile Header in Dropdown */}
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-                        {getInitials(psychologistProfile.name)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-heading">{psychologistProfile.name}</p>
-                        <p className="text-xs text-label">{psychologistProfile.title}</p>
-                      </div>
-                    </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 mt-2 w-52 bg-white/90 backdrop-blur-md rounded-2xl border border-white/60 shadow-xl py-2"
+                >
+                  <div className="px-4 py-2 border-b border-gray-100 mb-1">
+                    <p className="text-sm font-semibold text-heading truncate">{psychologistName}</p>
+                    <p className="text-xs text-body truncate">{user?.role || 'Psychologist'}</p>
                   </div>
-
-                  {/* Profile Details */}
-                  <div className="px-4 py-3 border-b border-gray-100 space-y-2">
-                    <div className="flex items-center space-x-3 text-sm">
-                      <User className="w-4 h-4 text-gray-400" />
-                      <span className="text-body">License {psychologistProfile.licenseNumber}</span>
-                    </div>
-                    <div className="flex items-center space-x-3 text-sm">
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                      <span className="text-body">{psychologistProfile.location}</span>
-                    </div>
-                    <div className="flex items-center space-x-3 text-sm">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <span className="text-body">{psychologistProfile.yearsOfExperience} Years Experience</span>
-                    </div>
-                    <div className="flex items-center space-x-3 text-sm">
-                      <Sparkles className="w-4 h-4 text-gray-400" />
-                      <span className="text-body">{psychologistProfile.specialization}</span>
-                    </div>
-                  </div>
-
-                  {/* Menu Items */}
-                  <div className="py-2">
-                    <button
-                      onClick={() => setIsProfileOpen(false)}
-                      className="flex items-center space-x-3 px-4 py-2.5 text-sm text-body hover:bg-gray-50 transition-colors w-full"
-                    >
-                      <User className="w-4 h-4 text-gray-500" />
-                      <span>View Profile</span>
-                    </button>
-                    <button
-                      onClick={() => setIsProfileOpen(false)}
-                      className="flex items-center space-x-3 px-4 py-2.5 text-sm text-body hover:bg-gray-50 transition-colors w-full"
-                    >
-                      <Settings className="w-4 h-4 text-gray-500" />
-                      <span>Edit Profile</span>
-                    </button>
-                  </div>
-
-                  {/* Logout */}
-                  <div className="border-t border-gray-100 pt-2">
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors w-full"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Logout</span>
-                    </button>
-                  </div>
-                </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign out
+                  </button>
+                </motion.div>
               )}
-            </div>
+            </AnimatePresence>
           </div>
         </div>
       </nav>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Welcome Header */}
+      {/* ── Page Content ── */}
+      <div className="max-w-5xl mx-auto px-6 py-8">
+
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-h1 text-heading mb-2">
-            Welcome back, {psychologistProfile.name}
+          <h1 className="text-3xl font-montserrat font-bold text-heading">
+            Welcome back, {psychologistName}
           </h1>
-          <p className="text-body">
-            {psychologistProfile.title} • License {psychologistProfile.licenseNumber}
+          <p className="text-sm text-body mt-1">
+            Psychologist&nbsp;&bull;&nbsp;ID #{user?.id ?? '—'}
           </p>
         </div>
 
-        {/* Booking Requests Section */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-soft">
-          <div className="flex items-center space-x-3 mb-6">
-            <Calendar className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-montserrat font-semibold text-primary uppercase tracking-wide">
-              Booking Requests
-            </h2>
+        {/* ── Booking Requests Section ── */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-violet-600" />
+              <h2 className="text-sm font-bold text-heading tracking-wider uppercase">
+                Booking Requests
+              </h2>
+              {requests.length > 0 && (
+                <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-bold rounded-full">
+                  {requests.length}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={fetchRequests}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-800 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
           </div>
 
-          {bookingRequests.length === 0 ? (
-            <div className="text-center py-12">
-              <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-body">No pending booking requests</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {bookingRequests.map((request) => (
-                <div
-                  key={request.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  {/* Student Info */}
-                  <div className="flex items-center space-x-4">
-                    {/* Avatar */}
-                    <div className="w-14 h-14 bg-primary/10 border-2 border-primary/30 rounded-full flex items-center justify-center text-primary font-semibold text-lg">
-                      {request.studentInitials}
-                    </div>
+          {/* Error banner */}
+          <AnimatePresence>
+            {fetchError && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-4"
+              >
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {fetchError}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-                    {/* Details */}
-                    <div>
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className="text-lg font-semibold text-heading">{request.studentName}</h3>
-                        <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs rounded-full">
-                          Age: {request.age}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-4 text-sm text-body">
-                        <span className="flex items-center space-x-1">
-                          <GraduationCap className="w-4 h-4 text-gray-400" />
-                          <span>Grade {request.grade}</span>
-                        </span>
-                        <span className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          <span>{request.appointmentTime}</span>
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-2 mt-2">
-                        <span className="flex items-center space-x-1 px-3 py-1 bg-amber-50 text-amber-700 text-xs rounded-full border border-amber-200">
-                          <Sparkles className="w-3 h-3" />
-                          <span>{request.issue}</span>
-                        </span>
-                        {request.isAffiliate && (
-                          <span className="px-3 py-1 bg-red-50 text-red-600 text-xs font-medium rounded-full border border-red-200">
-                            AFFILIATE
-                          </span>
-                        )}
-                      </div>
+          {/* Loading skeleton */}
+          {isLoading && (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-white/70 rounded-2xl p-5 border border-white/60 animate-pulse">
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 bg-gray-200 rounded-full flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-1/3" />
+                      <div className="h-3 bg-gray-100 rounded w-1/2" />
                     </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center space-x-3">
-                    <button
-                      onClick={() => handleApprove(request.id)}
-                      className="flex items-center space-x-2 px-5 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Approve</span>
-                    </button>
-                    <button
-                      onClick={() => handleDecline(request.id)}
-                      className="flex items-center space-x-2 px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      <span>Decline</span>
-                    </button>
+                    <div className="flex gap-2">
+                      <div className="h-9 w-24 bg-gray-200 rounded-xl" />
+                      <div className="h-9 w-20 bg-gray-100 rounded-xl" />
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+
+          {/* Empty state */}
+          {!isLoading && requests.length === 0 && !fetchError && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white/70 backdrop-blur-sm border border-white/60 rounded-2xl p-10 text-center"
+            >
+              <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-7 h-7 text-violet-400" />
+              </div>
+              <p className="font-semibold text-heading mb-1">No pending requests</p>
+              <p className="text-sm text-body">New session requests will appear here.</p>
+            </motion.div>
+          )}
+
+          {/* Request cards */}
+          {!isLoading && (
+            <AnimatePresence initial={false}>
+              <div className="space-y-3">
+                {requests.map((req, idx) => {
+                  const isActing = !!actionLoading[req.id]
+                  const color = avatarColor(req.studentName)
+                  return (
+                    <motion.div
+                      key={req.id}
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -24, height: 0, marginBottom: 0 }}
+                      transition={{ duration: 0.25, delay: idx * 0.04 }}
+                      className="bg-white/80 backdrop-blur-sm border border-white/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+
+                        {/* Avatar */}
+                        <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${color} flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm`}>
+                          {initials(req.studentName)}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-heading text-sm truncate">
+                            {req.studentName}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-3 mt-1">
+                            <span className="flex items-center gap-1 text-xs text-body">
+                              <Mail className="w-3.5 h-3.5 text-violet-400" />
+                              {req.studentEmail}
+                            </span>
+                            <span className="flex items-center gap-1 text-xs text-body">
+                              <Clock className="w-3.5 h-3.5 text-violet-400" />
+                              {formatDateTime(req.startUtc)}
+                              {' → '}
+                              {formatDateTime(req.endUtc)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <motion.button
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => handleAction(req, 'accept')}
+                            disabled={isActing}
+                            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-sm hover:opacity-90 disabled:opacity-50 transition-all"
+                          >
+                            {actionLoading[req.id] === 'accept' ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle className="w-3.5 h-3.5" />
+                            )}
+                            Approve
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => handleAction(req, 'reject')}
+                            disabled={isActing}
+                            className="flex items-center gap-1.5 bg-white text-gray-600 border border-gray-200 text-xs font-semibold px-4 py-2 rounded-xl hover:border-red-300 hover:text-red-600 disabled:opacity-50 transition-all"
+                          >
+                            {actionLoading[req.id] === 'reject' ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <XCircle className="w-3.5 h-3.5" />
+                            )}
+                            Decline
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+            </AnimatePresence>
+          )}
+        </section>
       </div>
     </div>
   )

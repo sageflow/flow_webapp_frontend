@@ -102,6 +102,17 @@ export interface PsychologistSignupRequest {
   workDays?: string;
 }
 
+// Psychologist - Booking Requests
+export interface RequestedMeetingDto {
+  id: number;
+  studentName: string;
+  studentEmail: string;
+  psychologistEmail: string;
+  startUtc: string;
+  endUtc: string;
+  createdAt: string;
+}
+
 // Interest & Profile Types
 export interface StudentInterestDTO {
   studentId: number;

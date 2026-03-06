@@ -65,7 +65,8 @@ import {
   Marksheet,
   OceanQuestion,
   GuidanceResponse,
-  StudentWellbeing
+  StudentWellbeing,
+  RequestedMeetingDto
 } from './types';
 
 class ApiService extends BaseApiService {
@@ -717,6 +718,23 @@ class ApiService extends BaseApiService {
 
   async getSleepHoursAnalytics(studentId: number, startDate: string, endDate: string): Promise<any> {
     return this.request(`/analytics/sleep-hours/${studentId}?startDate=${startDate}&endDate=${endDate}`);
+  }
+
+  // ─── Psychologist / Google Calendar APIs ─────────────────────────────────────
+  async getRequestedMeetings(psychologistId: number): Promise<RequestedMeetingDto[]> {
+    return this.request<RequestedMeetingDto[]>(`/api/google/requested_meetings/${psychologistId}`);
+  }
+
+  async acceptMeetingRequest(requestId: number, psychologistId: number): Promise<any> {
+    return this.request(`/api/google/requested_meetings/${requestId}/accept/${psychologistId}`, {
+      method: 'POST',
+    });
+  }
+
+  async rejectMeetingRequest(requestId: number, psychologistId: number): Promise<any> {
+    return this.request(`/api/google/requested_meetings/${requestId}/reject/${psychologistId}`, {
+      method: 'POST',
+    });
   }
 }
 
