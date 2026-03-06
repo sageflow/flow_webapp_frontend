@@ -93,6 +93,13 @@ export interface PsychologistSignupRequest {
   specialization: string;
   yearsOfExperience: number;
   biography: string;
+  role: 'Counselor' | 'Psychologist' | 'Psychiatrist';
+  verified?: boolean;
+  sessionDurationMinutes?: number;
+  bufferMinutes?: number;
+  workStart?: string;
+  workEnd?: string;
+  workDays?: string;
 }
 
 // Interest & Profile Types

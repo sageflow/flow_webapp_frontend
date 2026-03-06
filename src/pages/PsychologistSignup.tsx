@@ -5,7 +5,8 @@ import {
   MapPin, FileText, Clock, Eye, EyeOff, AlertCircle
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { apiService, PsychologistSignupRequest } from '../services/api'
+import { authService } from '../services/authService'
+import type { PsychologistSignupRequest } from '../services/types'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ErrorMessage from '../components/common/ErrorMessage'
 import AuthPageBackground from '../components/common/AuthPageBackground'
@@ -78,7 +79,12 @@ const PsychologistSignup: React.FC = () => {
     licenseNumber: '',
     specialization: '',
     yearsOfExperience: '',
-    biography: ''
+    biography: '',
+    sessionDurationMinutes: '30',
+    bufferMinutes: '10',
+    workStart: '09:00',
+    workEnd: '17:00',
+    workDays: 'MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY'
   })
 
   const [currentStep, setCurrentStep] = useState(1)
@@ -270,9 +276,16 @@ const PsychologistSignup: React.FC = () => {
         licenseNumber: formData.licenseNumber.trim(),
         specialization: formData.specialization.trim(),
         yearsOfExperience: parseInt(formData.yearsOfExperience, 10),
-        biography: formData.biography.trim()
+        biography: formData.biography.trim(),
+        role: 'Psychologist',
+        verified: false,
+        sessionDurationMinutes: parseInt(formData.sessionDurationMinutes, 10),
+        bufferMinutes: parseInt(formData.bufferMinutes, 10),
+        workStart: formData.workStart,
+        workEnd: formData.workEnd,
+        workDays: formData.workDays,
       }
-      await apiService.psychologistSignup(signupData)
+      await authService.psychologistSignup(signupData)
       setIsSubmitted(true)
     } catch (err: unknown) {
       let errorMessage = 'Signup failed. Please try again.'
@@ -553,6 +566,106 @@ const PsychologistSignup: React.FC = () => {
           {formData.biography.length} / 2000
         </p>
       )}
+
+      {/* Session Settings */}
+      <div className="pt-1 border-t border-white/40">
+        <p className="text-[11px] font-semibold text-heading tracking-widest uppercase mb-3">Session Settings</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Session Duration (min) *" error={fieldErrors.sessionDurationMinutes} icon={<Clock className="w-[18px] h-[18px]" />}>
+            <select
+              name="sessionDurationMinutes"
+              value={formData.sessionDurationMinutes}
+              onChange={handleInputChange}
+              disabled={isLoading}
+              className={glassInput(!!fieldErrors.sessionDurationMinutes)}
+            >
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">60 min</option>
+              <option value="90">90 min</option>
+              <option value="120">120 min</option>
+            </select>
+          </Field>
+          <Field label="Buffer Between Sessions (min)" error={fieldErrors.bufferMinutes} icon={<Clock className="w-[18px] h-[18px]" />}>
+            <select
+              name="bufferMinutes"
+              value={formData.bufferMinutes}
+              onChange={handleInputChange}
+              disabled={isLoading}
+              className={glassInput()}
+            >
+              <option value="0">0 min</option>
+              <option value="5">5 min</option>
+              <option value="10">10 min</option>
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+            </select>
+          </Field>
+        </div>
+      </div>
+
+      {/* Working Hours */}
+      <div>
+        <p className="text-[11px] font-semibold text-heading tracking-widest uppercase mb-3">Working Hours</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Work Start Time *" error={fieldErrors.workStart} icon={<Clock className="w-[18px] h-[18px]" />}>
+            <input
+              type="time"
+              name="workStart"
+              value={formData.workStart}
+              onChange={handleInputChange}
+              disabled={isLoading}
+              className={glassInput(!!fieldErrors.workStart)}
+            />
+          </Field>
+          <Field label="Work End Time *" error={fieldErrors.workEnd} icon={<Clock className="w-[18px] h-[18px]" />}>
+            <input
+              type="time"
+              name="workEnd"
+              value={formData.workEnd}
+              onChange={handleInputChange}
+              disabled={isLoading}
+              className={glassInput(!!fieldErrors.workEnd)}
+            />
+          </Field>
+        </div>
+      </div>
+
+      {/* Work Days */}
+      <div>
+        <p className="text-[11px] font-semibold text-heading tracking-widest uppercase mb-2">Work Days *</p>
+        <div className="flex flex-wrap gap-2">
+          {['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'].map(day => {
+            const selected = formData.workDays.split(',').filter(Boolean).includes(day)
+            return (
+              <button
+                key={day}
+                type="button"
+                disabled={isLoading}
+                onClick={() => {
+                  const days = formData.workDays.split(',').filter(Boolean)
+                  const updated = selected
+                    ? days.filter(d => d !== day)
+                    : [...days, day]
+                  setFormData(prev => ({ ...prev, workDays: updated.join(',') }))
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${selected
+                    ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                    : 'bg-white/60 text-heading border-white/60 hover:border-violet-400'
+                  }`}
+              >
+                {day.slice(0, 3)}
+              </button>
+            )
+          })}
+        </div>
+        {fieldErrors.workDays && (
+          <p className="mt-1.5 flex items-center gap-1 text-xs text-red-600">
+            <AlertCircle className="w-3 h-3" />{fieldErrors.workDays}
+          </p>
+        )}
+      </div>
     </motion.div>
   )
 
@@ -636,10 +749,10 @@ const PsychologistSignup: React.FC = () => {
                 <React.Fragment key={step.id}>
                   <div className="flex flex-col items-center">
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${step.id < currentStep
-                        ? 'bg-violet-600 text-white'
-                        : step.id === currentStep
-                          ? 'bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-glow'
-                          : 'bg-white/60 border border-white/60 text-gray-400'
+                      ? 'bg-violet-600 text-white'
+                      : step.id === currentStep
+                        ? 'bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-glow'
+                        : 'bg-white/60 border border-white/60 text-gray-400'
                       }`}>
                       {step.id < currentStep ? <CheckCircle className="w-4 h-4" /> : step.id}
                     </div>
