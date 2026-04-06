@@ -113,6 +113,16 @@ export interface RequestedMeetingDto {
   createdAt: string;
 }
 
+// Psychologist - Upcoming Meetings (Google Calendar)
+export interface UpcomingMeetingDto {
+  googleEventId: string;   // unique Google Calendar event ID
+  meetLink: string;        // Google Meet URL
+  startUtc: string;        // ISO-8601
+  endUtc: string;          // ISO-8601
+  studentEmail: string;
+  psychologistEmail: string;
+}
+
 // Interest & Profile Types
 export interface StudentInterestDTO {
   studentId: number;

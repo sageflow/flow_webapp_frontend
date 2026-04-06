@@ -10,47 +10,155 @@ import {
   XCircle,
   RefreshCw,
   AlertCircle,
-  Mail,
-  Loader2
+  History,
+  Video,
+  ExternalLink,
+  Loader2,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import { apiService } from '../services/api'
-import type { RequestedMeetingDto } from '../services/types'
+import type { RequestedMeetingDto, UpcomingMeetingDto } from '../services/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Format UTC ISO string into a readable local time */
-const formatDateTime = (utc: string): string => {
+const formatTime = (utc: string): string => {
   try {
-    return new Date(utc).toLocaleString(undefined, {
-      month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
+    return new Date(utc).toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
     })
   } catch {
     return utc
   }
 }
 
-/** Derive initials from a full name */
-const initials = (name: string): string =>
-  name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
+const formatDate = (utc: string): string => {
+  try {
+    return new Date(utc).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  } catch {
+    return utc
+  }
+}
 
-/** Pick a deterministic avatar colour from the name */
-const avatarColor = (name: string): string => {
-  const colors = [
-    'from-violet-500 to-purple-600',
-    'from-blue-500 to-indigo-600',
-    'from-emerald-500 to-teal-600',
-    'from-rose-500 to-pink-600',
-    'from-amber-500 to-orange-500',
+const durationMins = (start: string, end: string): number => {
+  try {
+    return Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000)
+  } catch {
+    return 0
+  }
+}
+
+const initials = (name: string): string =>
+  name
+    .split(' ')
+    .map(p => p[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+
+const avatarHue = (name: string): string => {
+  const palettes = [
+    'from-violet-400 to-purple-500',
+    'from-blue-400 to-indigo-500',
+    'from-emerald-400 to-teal-500',
+    'from-rose-400 to-pink-500',
+    'from-amber-400 to-orange-500',
   ]
   let hash = 0
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  return colors[Math.abs(hash) % colors.length]
+  return palettes[Math.abs(hash) % palettes.length]
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+/** Derive a display name from the student email (e.g. john.doe@school.com → John Doe) */
+const meetingLabel = (m: UpcomingMeetingDto): string => {
+  const local = m.studentEmail?.split('@')[0] || 'Session'
+  // Convert dot/underscore separated to Title Case
+  return local
+    .split(/[._-]/)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+interface BookingCardProps {
+  req: RequestedMeetingDto
+  actionLoading: 'accept' | 'reject' | null
+  onAction: (action: 'accept' | 'reject') => void
+}
+
+const BookingCard: React.FC<BookingCardProps> = ({ req, actionLoading, onAction }) => {
+  const color = avatarHue(req.studentName)
+  const isActing = !!actionLoading
+
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col gap-4 min-w-0">
+      {/* Student info */}
+      <div className="flex items-center gap-3">
+        <div
+          className={`w-10 h-10 rounded-full bg-gradient-to-br ${color} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}
+        >
+          {initials(req.studentName)}
+        </div>
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-900 text-sm leading-tight truncate">
+            {req.studentName}
+          </p>
+          <p className="text-xs text-gray-400 uppercase tracking-wider mt-0.5">
+            {req.studentEmail}
+          </p>
+        </div>
+      </div>
+
+      {/* Time snippet */}
+      <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2 italic leading-relaxed">
+        "{formatDate(req.startUtc)} · {formatTime(req.startUtc)} – {formatTime(req.endUtc)}"
+      </p>
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => onAction('accept')}
+          disabled={isActing}
+          className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-violet-600 to-purple-700 text-white text-xs font-semibold py-2 rounded-xl shadow-sm hover:opacity-90 disabled:opacity-50 transition-all"
+        >
+          {actionLoading === 'accept' ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <CheckCircle className="w-3.5 h-3.5" />
+          )}
+          Approve
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => onAction('reject')}
+          disabled={isActing}
+          className="flex-1 flex items-center justify-center gap-1.5 bg-white text-gray-500 border border-gray-200 text-xs font-semibold py-2 rounded-xl hover:border-red-300 hover:text-red-600 disabled:opacity-50 transition-all"
+        >
+          {actionLoading === 'reject' ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <XCircle className="w-3.5 h-3.5" />
+          )}
+          Decline
+        </motion.button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 const PsychologistDashboard: React.FC = () => {
   const { user, logout } = useAuth()
@@ -58,13 +166,20 @@ const PsychologistDashboard: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+
+  // Booking requests
   const [requests, setRequests] = useState<RequestedMeetingDto[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [fetchError, setFetchError] = useState<string | null>(null)
-  // Track per-request action loading: { [requestId]: 'accept' | 'reject' | null }
+  const [requestsLoading, setRequestsLoading] = useState(true)
+  const [requestsError, setRequestsError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<Record<number, 'accept' | 'reject' | null>>({})
 
-  // ── Close dropdown on outside click
+  // Upcoming meetings (Today's Schedule)
+  const [upcomingMeetings, setUpcomingMeetings] = useState<UpcomingMeetingDto[]>([])
+  const [scheduleLoading, setScheduleLoading] = useState(true)
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
+  const [psychEmail, setPsychEmail] = useState<string | null>(null)
+
+  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
@@ -74,42 +189,61 @@ const PsychologistDashboard: React.FC = () => {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // ── Fetch booking requests
+  // Fetch booking requests
   const fetchRequests = useCallback(async () => {
     if (!user?.id) return
-    setIsLoading(true)
-    setFetchError(null)
+    setRequestsLoading(true)
+    setRequestsError(null)
     try {
       const data = await apiService.getRequestedMeetings(user.id)
       setRequests(data)
     } catch (err: unknown) {
-      setFetchError(err instanceof Error ? err.message : 'Failed to load booking requests')
+      setRequestsError(err instanceof Error ? err.message : 'Failed to load booking requests')
     } finally {
-      setIsLoading(false)
+      setRequestsLoading(false)
     }
   }, [user?.id])
 
-  useEffect(() => { fetchRequests() }, [fetchRequests])
-
-  // ── Accept / Reject
-  const handleAction = async (request: RequestedMeetingDto, action: 'accept' | 'reject') => {
+  // Fetch psychologist email, then fetch upcoming meetings
+  const fetchSchedule = useCallback(async () => {
     if (!user?.id) return
-    setActionLoading(prev => ({ ...prev, [request.id]: action }))
+    setScheduleLoading(true)
+    setScheduleError(null)
+    try {
+      const profile = await apiService.getPsychologistById(user.id)
+      const email: string = profile?.email || profile?.emailAddress || ''
+      if (!email) throw new Error('Could not resolve psychologist email')
+      setPsychEmail(email)
+      const meetings = await apiService.getUpcomingMeetings(email)
+      setUpcomingMeetings(Array.isArray(meetings) ? meetings : [])
+    } catch (err: unknown) {
+      setScheduleError(err instanceof Error ? err.message : 'Failed to load schedule')
+    } finally {
+      setScheduleLoading(false)
+    }
+  }, [user?.id])
+
+  useEffect(() => {
+    fetchRequests()
+    fetchSchedule()
+  }, [fetchRequests, fetchSchedule])
+
+  // Accept / Reject
+  const handleAction = async (req: RequestedMeetingDto, action: 'accept' | 'reject') => {
+    if (!user?.id) return
+    setActionLoading(prev => ({ ...prev, [req.id]: action }))
     try {
       if (action === 'accept') {
-        await apiService.acceptMeetingRequest(request.id, user.id)
+        await apiService.acceptMeetingRequest(req.id, user.id)
       } else {
-        await apiService.rejectMeetingRequest(request.id, user.id)
+        await apiService.rejectMeetingRequest(req.id, user.id)
       }
-      // Remove from list after action
-      setRequests(prev => prev.filter(r => r.id !== request.id))
+      setRequests(prev => prev.filter(r => r.id !== req.id))
     } catch (err: unknown) {
-      console.error(`Failed to ${action} request:`, err)
-      // Show error briefly then clear
-      setFetchError(err instanceof Error ? err.message : `Failed to ${action} request`)
-      setTimeout(() => setFetchError(null), 4000)
+      setRequestsError(err instanceof Error ? err.message : `Failed to ${action} request`)
+      setTimeout(() => setRequestsError(null), 4000)
     } finally {
-      setActionLoading(prev => ({ ...prev, [request.id]: null }))
+      setActionLoading(prev => ({ ...prev, [req.id]: null }))
     }
   }
 
@@ -118,23 +252,78 @@ const PsychologistDashboard: React.FC = () => {
     navigate('/')
   }
 
-  const psychologistName = user?.username ? `Dr. ${user.username}` : 'Dr. Anderson'
+  const psychName = user?.username ? `Dr. ${user.username}` : 'Dr. Anderson'
 
+  // ── Date picker state
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const [selectedDate, setSelectedDate] = useState<Date>(today)
+  const [calendarOpen, setCalendarOpen] = useState(false)
+  const [calMonth, setCalMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
+  const calRef = useRef<HTMLDivElement>(null)
+
+  // Close calendar on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (calRef.current && !calRef.current.contains(e.target as Node))
+        setCalendarOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Build calendar grid for calMonth
+  const buildCalGrid = (monthStart: Date): (Date | null)[] => {
+    const year = monthStart.getFullYear()
+    const month = monthStart.getMonth()
+    const firstDay = new Date(year, month, 1).getDay() // 0 Sun … 6 Sat
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const grid: (Date | null)[] = Array(firstDay).fill(null)
+    for (let d = 1; d <= daysInMonth; d++) grid.push(new Date(year, month, d))
+    return grid
+  }
+
+  const calGrid = buildCalGrid(calMonth)
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+
+  const getYYYYMMDD = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  // Filter meetings strictly by the YYYY-MM-DD prefix of the UTC string
+  // This avoids timezone shifts dropping meetings scheduled late in the UTC day
+  const dateStr = getYYYYMMDD(selectedDate)
+  const dayMeetings = upcomingMeetings.filter(
+    m => m.startUtc && m.startUtc.startsWith(dateStr)
+  )
+  const [firstSession, ...restSessions] = dayMeetings
+
+  // Header subtitle count
+  const todayStr = getYYYYMMDD(today)
+  const todayCount = upcomingMeetings.filter(
+    m => m.startUtc && m.startUtc.startsWith(todayStr)
+  ).length
+
+  const formatSelectedDate = (d: Date) =>
+    d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+
+  const monthLabel = calMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-violet-50 to-pink-50">
-
+    <div className="min-h-screen bg-[#f5f3ff]">
       {/* ── Navbar ── */}
-      <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-white/60 shadow-sm">
-        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
-          {/* Logo */}
+      <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-purple-700 rounded-xl flex items-center justify-center shadow-sm">
+            <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-purple-700 rounded-xl flex items-center justify-center">
               <Brain className="w-4 h-4 text-white" />
             </div>
-            <span className="font-montserrat font-bold text-lg text-heading">SageFlow</span>
+            <span className="font-bold text-lg text-gray-900 tracking-tight">SageFlow</span>
           </div>
 
-          {/* Profile dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsProfileOpen(p => !p)}
@@ -149,11 +338,11 @@ const PsychologistDashboard: React.FC = () => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-2 w-52 bg-white/90 backdrop-blur-md rounded-2xl border border-white/60 shadow-xl py-2"
+                  className="absolute right-0 mt-2 w-52 bg-white rounded-2xl border border-gray-100 shadow-xl py-2 z-50"
                 >
                   <div className="px-4 py-2 border-b border-gray-100 mb-1">
-                    <p className="text-sm font-semibold text-heading truncate">{psychologistName}</p>
-                    <p className="text-xs text-body truncate">{user?.role || 'Psychologist'}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{psychName}</p>
+                    <p className="text-xs text-gray-400 truncate">{psychEmail || user?.role || 'Psychologist'}</p>
                   </div>
                   <button
                     onClick={handleLogout}
@@ -169,176 +358,438 @@ const PsychologistDashboard: React.FC = () => {
         </div>
       </nav>
 
-      {/* ── Page Content ── */}
-      <div className="max-w-5xl mx-auto px-6 py-8">
-
+      {/* ── Page Body ── */}
+      <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-montserrat font-bold text-heading">
-            Welcome back, {psychologistName}
-          </h1>
-          <p className="text-sm text-body mt-1">
-            Psychologist&nbsp;&bull;&nbsp;ID #{user?.id ?? '—'}
+          <h1 className="text-3xl font-bold text-gray-900">Welcome back, {psychName}</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            You have {todayCount} session{todayCount !== 1 ? 's' : ''} today
+            {requests.length > 0 && ` and ${requests.length} pending request${requests.length !== 1 ? 's' : ''} to review`}.
           </p>
         </div>
 
-        {/* ── Booking Requests Section ── */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-violet-600" />
-              <h2 className="text-sm font-bold text-heading tracking-wider uppercase">
-                Booking Requests
-              </h2>
-              {requests.length > 0 && (
-                <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-bold rounded-full">
-                  {requests.length}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={fetchRequests}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-800 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
-
-          {/* Error banner */}
-          <AnimatePresence>
-            {fetchError && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-4"
-              >
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {fetchError}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Loading skeleton */}
-          {isLoading && (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="bg-white/70 rounded-2xl p-5 border border-white/60 animate-pulse">
-                  <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 bg-gray-200 rounded-full flex-shrink-0" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-gray-200 rounded w-1/3" />
-                      <div className="h-3 bg-gray-100 rounded w-1/2" />
-                    </div>
-                    <div className="flex gap-2">
-                      <div className="h-9 w-24 bg-gray-200 rounded-xl" />
-                      <div className="h-9 w-20 bg-gray-100 rounded-xl" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!isLoading && requests.length === 0 && !fetchError && (
+        {/* Global error banner */}
+        <AnimatePresence>
+          {requestsError && (
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white/70 backdrop-blur-sm border border-white/60 rounded-2xl p-10 text-center"
+              exit={{ opacity: 0, y: -8 }}
+              className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-6"
             >
-              <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Calendar className="w-7 h-7 text-violet-400" />
-              </div>
-              <p className="font-semibold text-heading mb-1">No pending requests</p>
-              <p className="text-sm text-body">New session requests will appear here.</p>
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {requestsError}
             </motion.div>
           )}
+        </AnimatePresence>
 
-          {/* Request cards */}
-          {!isLoading && (
-            <AnimatePresence initial={false}>
-              <div className="space-y-3">
-                {requests.map((req, idx) => {
-                  const isActing = !!actionLoading[req.id]
-                  const color = avatarColor(req.studentName)
-                  return (
-                    <motion.div
-                      key={req.id}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -24, height: 0, marginBottom: 0 }}
-                      transition={{ duration: 0.25, delay: idx * 0.04 }}
-                      className="bg-white/80 backdrop-blur-sm border border-white/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+        {/* ── Two-column layout ── */}
+        <div className="flex gap-6 items-start">
 
-                        {/* Avatar */}
-                        <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${color} flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm`}>
-                          {initials(req.studentName)}
-                        </div>
+          {/* ── Left column ── */}
+          <div className="flex-1 min-w-0 space-y-8">
 
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-heading text-sm truncate">
-                            {req.studentName}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-3 mt-1">
-                            <span className="flex items-center gap-1 text-xs text-body">
-                              <Mail className="w-3.5 h-3.5 text-violet-400" />
-                              {req.studentEmail}
-                            </span>
-                            <span className="flex items-center gap-1 text-xs text-body">
-                              <Clock className="w-3.5 h-3.5 text-violet-400" />
-                              {formatDateTime(req.startUtc)}
-                              {' → '}
-                              {formatDateTime(req.endUtc)}
-                            </span>
-                          </div>
-                        </div>
+            {/* ── Booking Requests ── */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-violet-100 rounded-lg flex items-center justify-center">
+                    <Calendar className="w-4 h-4 text-violet-600" />
+                  </div>
+                  <h2 className="text-base font-bold text-gray-900">Booking Requests</h2>
+                  {requests.length > 0 && (
+                    <span className="px-2 py-0.5 bg-violet-600 text-white text-xs font-bold rounded-full">
+                      {requests.length} New
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={fetchRequests}
+                  disabled={requestsLoading}
+                  className="flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-800 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${requestsLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <motion.button
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={() => handleAction(req, 'accept')}
-                            disabled={isActing}
-                            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-sm hover:opacity-90 disabled:opacity-50 transition-all"
-                          >
-                            {actionLoading[req.id] === 'accept' ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <CheckCircle className="w-3.5 h-3.5" />
-                            )}
-                            Approve
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={() => handleAction(req, 'reject')}
-                            disabled={isActing}
-                            className="flex items-center gap-1.5 bg-white text-gray-600 border border-gray-200 text-xs font-semibold px-4 py-2 rounded-xl hover:border-red-300 hover:text-red-600 disabled:opacity-50 transition-all"
-                          >
-                            {actionLoading[req.id] === 'reject' ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <XCircle className="w-3.5 h-3.5" />
-                            )}
-                            Decline
-                          </motion.button>
+              {/* Skeleton */}
+              {requestsLoading && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[1, 2].map(i => (
+                    <div key={i} className="bg-white rounded-2xl p-5 border border-gray-100 animate-pulse">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 bg-gray-200 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3.5 bg-gray-200 rounded w-3/4" />
+                          <div className="h-3 bg-gray-100 rounded w-1/2" />
                         </div>
                       </div>
-                    </motion.div>
-                  )
-                })}
+                      <div className="h-10 bg-gray-100 rounded-xl mb-3" />
+                      <div className="flex gap-2">
+                        <div className="flex-1 h-9 bg-gray-200 rounded-xl" />
+                        <div className="flex-1 h-9 bg-gray-100 rounded-xl" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!requestsLoading && requests.length === 0 && !requestsError && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="bg-white rounded-2xl p-10 text-center border border-gray-100"
+                >
+                  <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <Calendar className="w-6 h-6 text-violet-400" />
+                  </div>
+                  <p className="font-semibold text-gray-700 mb-1">No pending requests</p>
+                  <p className="text-sm text-gray-400">New session requests will appear here.</p>
+                </motion.div>
+              )}
+
+              {/* Cards grid */}
+              {!requestsLoading && requests.length > 0 && (
+                <AnimatePresence initial={false}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {requests.map((req, idx) => (
+                      <motion.div
+                        key={req.id}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.2, delay: idx * 0.05 }}
+                      >
+                        <BookingCard
+                          req={req}
+                          actionLoading={actionLoading[req.id] ?? null}
+                          onAction={action => handleAction(req, action)}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                </AnimatePresence>
+              )}
+            </section>
+
+            {/* ── Meeting History ── */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-violet-100 rounded-lg flex items-center justify-center">
+                    <History className="w-4 h-4 text-violet-600" />
+                  </div>
+                  <h2 className="text-base font-bold text-gray-900">Meeting History</h2>
+                </div>
+                <button className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 transition-colors font-medium">
+                  View Full Logs
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-            </AnimatePresence>
-          )}
-        </section>
+
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Table header */}
+                <div className="grid grid-cols-4 px-6 py-3 border-b border-gray-100 bg-gray-50/60">
+                  {['STUDENT', 'DATE', 'DURATION', 'ACTION'].map(h => (
+                    <span key={h} className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                      {h}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Schedule error / empty */}
+                {!scheduleLoading && (scheduleError || upcomingMeetings.length === 0) && (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center">
+                      <History className="w-6 h-6 text-gray-300" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-400">No meeting history yet</p>
+                    <p className="text-xs text-gray-300">Past sessions will appear here.</p>
+                  </div>
+                )}
+
+                {/* Loading */}
+                {scheduleLoading && (
+                  <div className="divide-y divide-gray-50">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="grid grid-cols-4 px-6 py-4 animate-pulse">
+                        <div className="h-3.5 bg-gray-200 rounded w-3/4" />
+                        <div className="h-3.5 bg-gray-100 rounded w-1/2" />
+                        <div className="h-3.5 bg-gray-100 rounded w-1/3" />
+                        <div className="h-3.5 bg-violet-100 rounded w-1/2" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Rows */}
+                {!scheduleLoading && !scheduleError && upcomingMeetings.length > 0 && (
+                  <div className="divide-y divide-gray-50">
+                    {upcomingMeetings.map((m, i) => {
+                      const label = meetingLabel(m)
+                      const mins = durationMins(m.startUtc, m.endUtc)
+                      return (
+                        <motion.div
+                          key={m.googleEventId || i}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="grid grid-cols-4 px-6 py-4 hover:bg-violet-50/30 transition-colors items-center"
+                        >
+                          <span className="text-sm font-medium text-gray-800">{label}</span>
+                          <span className="text-sm text-gray-500">{formatDate(m.startUtc)}</span>
+                          <span className="text-sm text-gray-500">{mins > 0 ? `${mins} mins` : '—'}</span>
+                          {m.meetLink ? (
+                            <a
+                              href={m.meetLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-sm text-violet-600 font-medium hover:text-violet-800 transition-colors"
+                            >
+                              Join <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          ) : (
+                            <span className="text-sm text-violet-500 font-medium cursor-default">
+                              View Notes ↗
+                            </span>
+                          )}
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+
+          {/* ── Right column: Today’s Schedule ── */}
+          <div className="w-72 flex-shrink-0">
+            <motion.div
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.35 }}
+              className="bg-gradient-to-b from-violet-700 to-purple-800 rounded-3xl p-5 text-white shadow-xl"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-0.5">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-purple-200" />
+                  <h2 className="text-base font-bold text-white">Schedule</h2>
+                </div>
+                {/* Calendar icon toggles picker */}
+                <div className="relative" ref={calRef}>
+                  <button
+                    onClick={() => setCalendarOpen(o => !o)}
+                    className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 transition-colors"
+                    title="Pick a date"
+                  >
+                    <Calendar className="w-4 h-4 text-purple-200" />
+                  </button>
+
+                  {/* Mini calendar popup */}
+                  <AnimatePresence>
+                    {calendarOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 mt-2 w-64 bg-[#3b1f8c] rounded-2xl p-4 shadow-2xl z-50 border border-white/10"
+                      >
+                        {/* Month navigation */}
+                        <div className="flex items-center justify-between mb-3">
+                          <button
+                            onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/15 transition-colors"
+                          >
+                            <ChevronLeft className="w-4 h-4 text-purple-200" />
+                          </button>
+                          <span className="text-xs font-bold text-white">{monthLabel}</span>
+                          <button
+                            onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/15 transition-colors"
+                          >
+                            <ChevronRight className="w-4 h-4 text-purple-200" />
+                          </button>
+                        </div>
+
+                        {/* Day headers */}
+                        <div className="grid grid-cols-7 mb-1">
+                          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                            <span key={d} className="text-center text-[10px] font-bold text-purple-300/70">{d}</span>
+                          ))}
+                        </div>
+
+                        {/* Day grid */}
+                        <div className="grid grid-cols-7 gap-y-0.5">
+                          {calGrid.map((d, i) => {
+                            if (!d) return <span key={`empty-${i}`} />
+                            const isToday = isSameDay(d, today)
+                            const isSelected = isSameDay(d, selectedDate)
+                            return (
+                              <button
+                                key={d.toISOString()}
+                                onClick={() => { setSelectedDate(d); setCalendarOpen(false) }}
+                                className={`
+                                  w-7 h-7 mx-auto rounded-lg text-[11px] font-semibold transition-all
+                                  ${isSelected
+                                    ? 'bg-white text-purple-800 shadow-sm'
+                                    : isToday
+                                      ? 'bg-emerald-500/30 text-emerald-200 ring-1 ring-emerald-400/50'
+                                      : 'text-purple-200 hover:bg-white/15'
+                                  }
+                                `}
+                              >
+                                {d.getDate()}
+                              </button>
+                            )
+                          })}
+                        </div>
+
+                        {/* Today shortcut */}
+                        <button
+                          onClick={() => { setSelectedDate(today); setCalMonth(new Date(today.getFullYear(), today.getMonth(), 1)); setCalendarOpen(false) }}
+                          className="mt-3 w-full text-xs font-semibold text-purple-300 hover:text-white transition-colors text-center"
+                        >
+                          Jump to Today
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+              {/* Subtitle */}
+              <p className="text-[11px] text-purple-300/80 mb-3 ml-0.5">Upcoming Meetings</p>
+
+              {/* Date navigator row */}
+              <div className="flex items-center justify-between bg-white/10 rounded-xl px-3 py-2 mb-4">
+                <button
+                  onClick={() => {
+                    const prev = new Date(selectedDate)
+                    prev.setDate(prev.getDate() - 1)
+                    setSelectedDate(prev)
+                    setCalMonth(new Date(prev.getFullYear(), prev.getMonth(), 1))
+                  }}
+                  className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/15 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4 text-purple-200" />
+                </button>
+                <span className="text-xs font-bold text-white">
+                  {isSameDay(selectedDate, today) ? 'Today' : formatSelectedDate(selectedDate)}
+                </span>
+                <button
+                  onClick={() => {
+                    const nxt = new Date(selectedDate)
+                    nxt.setDate(nxt.getDate() + 1)
+                    setSelectedDate(nxt)
+                    setCalMonth(new Date(nxt.getFullYear(), nxt.getMonth(), 1))
+                  }}
+                  className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white/15 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4 text-purple-200" />
+                </button>
+              </div>
+
+              {/* Loading */}
+              {scheduleLoading && (
+                <div className="space-y-4">
+                  {[1, 2].map(i => (
+                    <div key={i} className="bg-white/10 rounded-2xl p-4 animate-pulse">
+                      <div className="h-3 bg-white/20 rounded w-1/3 mb-3" />
+                      <div className="h-4 bg-white/30 rounded w-2/3 mb-2" />
+                      <div className="h-3 bg-white/20 rounded w-1/2" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* API Error — clean state (no raw error string) */}
+              {!scheduleLoading && scheduleError && (
+                <div className="bg-white/10 rounded-2xl p-6 text-center">
+                  <Clock className="w-8 h-8 text-purple-300/60 mx-auto mb-3" />
+                  <p className="text-purple-200 text-sm font-medium mb-1">No schedule available</p>
+                  <p className="text-purple-300/70 text-xs mb-4">Couldn’t load sessions right now.</p>
+                  <button
+                    onClick={fetchSchedule}
+                    className="text-xs font-semibold text-white/80 hover:text-white underline underline-offset-2 transition-colors"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+
+              {/* No sessions on selected date */}
+              {!scheduleLoading && !scheduleError && dayMeetings.length === 0 && (
+                <div className="bg-white/10 rounded-2xl p-6 text-center">
+                  <Clock className="w-8 h-8 text-purple-300/50 mx-auto mb-3" />
+                  <p className="text-purple-200 text-sm font-medium">No sessions</p>
+                  <p className="text-purple-300/60 text-xs mt-1">
+                    {isSameDay(selectedDate, today) ? 'Nothing scheduled for today.' : 'Nothing on this day.'}
+                  </p>
+                </div>
+              )}
+
+              {/* First/next session (highlighted) */}
+              {!scheduleLoading && !scheduleError && firstSession && (
+                <div className="bg-white/[0.15] backdrop-blur-sm rounded-2xl p-4 mb-4 border border-white/20">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="text-[10px] font-bold text-purple-200 uppercase tracking-widest">
+                      {isSameDay(selectedDate, today) ? 'Next Session' : 'First Session'} • {formatTime(firstSession.startUtc)}
+                    </span>
+                    {isSameDay(selectedDate, today) && (
+                      <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse ml-auto" />
+                    )}
+                  </div>
+                  <p className="font-bold text-white text-base mb-0.5">{meetingLabel(firstSession)}</p>
+
+                  {firstSession.meetLink ? (
+                    <a
+                      href={firstSession.meetLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-4 flex items-center justify-center gap-2 w-full bg-white text-purple-700 font-bold text-sm py-2.5 rounded-xl hover:bg-purple-50 transition-colors shadow-md"
+                    >
+                      <Video className="w-4 h-4" />
+                      Start Session
+                    </a>
+                  ) : (
+                    <button
+                      disabled
+                      className="mt-4 flex items-center justify-center gap-2 w-full bg-white/20 text-white/60 font-semibold text-sm py-2.5 rounded-xl cursor-default"
+                    >
+                      <Video className="w-4 h-4" />
+                      Start Session
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Remaining sessions */}
+              {!scheduleLoading && !scheduleError && restSessions.length > 0 && (
+                <div className="space-y-3">
+                  {restSessions.map((m, i) => (
+                    <motion.div
+                      key={m.googleEventId || i}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 + i * 0.06 }}
+                      className="border-t border-white/10 pt-3"
+                    >
+                      <p className="text-xs font-semibold text-purple-300 mb-0.5">{formatTime(m.startUtc)}</p>
+                      <p className="font-semibold text-white text-sm">{meetingLabel(m)}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </div>
+        </div>
       </div>
+
+
     </div>
   )
 }

@@ -66,7 +66,8 @@ import {
   OceanQuestion,
   GuidanceResponse,
   StudentWellbeing,
-  RequestedMeetingDto
+  RequestedMeetingDto,
+  UpcomingMeetingDto
 } from './types';
 
 class ApiService extends BaseApiService {
@@ -736,6 +737,16 @@ class ApiService extends BaseApiService {
       method: 'POST',
     });
   }
+
+  /** Fetch psychologist profile by ID — used to resolve their email address */
+  async getPsychologistById(id: number): Promise<any> {
+    return this.request(`/psychologists/${id}`);
+  }
+
+  /** Fetch upcoming Google Calendar meetings for a psychologist email */
+  async getUpcomingMeetings(email: string): Promise<UpcomingMeetingDto[]> {
+    return this.request<UpcomingMeetingDto[]>(`/api/google/upcoming_meetings/${email}`);
+  }
 }
 
 export const apiService = new ApiService();
@@ -752,5 +763,6 @@ export type {
   Student,
   StudentAutocompleteDTO,
   AutocompleteResponse,
-  StudentSearchMode
+  StudentSearchMode,
+  UpcomingMeetingDto
 } from './types';
