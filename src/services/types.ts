@@ -102,6 +102,30 @@ export interface PsychologistSignupRequest {
   workDays?: string;
 }
 
+// Psychologist - Google Calendar DTOs
+export interface AvailableSlotDto {
+  startUtc: string;
+  endUtc: string;
+  startLocalTime: string;
+}
+
+export interface BookSessionRequest {
+  startUtc: string;
+  endUtc: string;
+  studentName: string;
+  studentEmail: string;
+  psychologistEmail: string;
+}
+
+export interface BookSessionResponse {
+  googleEventId: string;
+  meetLink: string;
+  startUtc: string;
+  endUtc: string;
+  studentEmail: string;
+  psychologistEmail: string;
+}
+
 // Psychologist - Booking Requests
 export interface RequestedMeetingDto {
   id: number;

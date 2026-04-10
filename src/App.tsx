@@ -25,6 +25,7 @@ import Wellness from './pages/Wellness'
 import DailyRoutine from './pages/DailyRoutine'
 import OceanTest from './pages/OceanTest'
 import PsychologistDashboard from './pages/PsychologistDashboard'
+import GoogleConnected from './pages/GoogleConnected'
 import ParentDashboard from './pages/ParentDashboard'
 import TeacherDashboard from './pages/TeacherDashboard'
 
@@ -153,6 +154,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PsychologistDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/google-connected"
+              element={
+                <ProtectedRoute>
+                  <GoogleConnected />
                 </ProtectedRoute>
               }
             />

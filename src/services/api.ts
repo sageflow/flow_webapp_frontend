@@ -67,7 +67,10 @@ import {
   GuidanceResponse,
   StudentWellbeing,
   RequestedMeetingDto,
-  UpcomingMeetingDto
+  UpcomingMeetingDto,
+  AvailableSlotDto,
+  BookSessionRequest,
+  BookSessionResponse
 } from './types';
 
 class ApiService extends BaseApiService {
@@ -747,6 +750,58 @@ class ApiService extends BaseApiService {
   async getUpcomingMeetings(email: string): Promise<UpcomingMeetingDto[]> {
     return this.request<UpcomingMeetingDto[]>(`/api/google/upcoming_meetings/${email}`);
   }
+
+  /** Check whether the psychologist has connected their Google account */
+  async checkGoogleStatus(psychologistId: number): Promise<{ connected: boolean }> {
+    return this.request<{ connected: boolean }>(`/api/google/status/${psychologistId}`);
+  }
+
+  /** Build the URL that initiates the Google OAuth flow (backend handles the 302) */
+  getGoogleConnectUrl(psychologistId: number): string {
+    return `${this.getBaseUrl()}/api/google/connect/${psychologistId}`;
+  }
+
+  /** Cancel a booked Google Calendar session */
+  async cancelSession(psychologistId: number, googleEventId: string): Promise<void> {
+    await this.request<void>(`/api/google/session/${psychologistId}/${googleEventId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /** Disconnect the psychologist's Google account */
+  async disconnectGoogle(psychologistId: number): Promise<void> {
+    await this.request<void>(`/api/google/disconnect/${psychologistId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /** Fetch available calendar slots for a psychologist */
+  async getAvailableSlots(
+    psychologistId: number,
+    from: string,
+    to: string,
+    tz: string = 'UTC'
+  ): Promise<AvailableSlotDto[]> {
+    return this.request<AvailableSlotDto[]>(
+      `/api/google/slots/${psychologistId}?from=${from}&to=${to}&tz=${encodeURIComponent(tz)}`
+    );
+  }
+
+  /** Book a session directly (psychologist-initiated) */
+  async bookSession(psychologistId: number, request: BookSessionRequest): Promise<BookSessionResponse> {
+    return this.request<BookSessionResponse>(`/api/google/book/${psychologistId}`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  /** Request a slot (student-initiated, creates a pending request) */
+  async requestBookSession(psychologistId: number, request: BookSessionRequest): Promise<RequestedMeetingDto> {
+    return this.request<RequestedMeetingDto>(`/api/google/request_book/${psychologistId}`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
 }
 
 export const apiService = new ApiService();
@@ -764,5 +819,9 @@ export type {
   StudentAutocompleteDTO,
   AutocompleteResponse,
   StudentSearchMode,
-  UpcomingMeetingDto
+  UpcomingMeetingDto,
+  AvailableSlotDto,
+  BookSessionRequest,
+  BookSessionResponse,
+  RequestedMeetingDto
 } from './types';

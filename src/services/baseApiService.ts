@@ -18,6 +18,10 @@ export class BaseApiService {
     localStorage.removeItem(AUTH_CONSTANTS.TOKEN_KEY);
   }
 
+  protected getBaseUrl(): string {
+    return API_CONFIG.BASE_URL;
+  }
+
   // Get headers for requests
   protected getHeaders(): HeadersInit {
     const headers: HeadersInit = {

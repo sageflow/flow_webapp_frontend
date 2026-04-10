@@ -16,6 +16,10 @@ import {
   Loader2,
   ChevronRight,
   ChevronLeft,
+  Link2,
+  Link2Off,
+  Trash2,
+  ShieldAlert,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
@@ -179,6 +183,15 @@ const PsychologistDashboard: React.FC = () => {
   const [scheduleError, setScheduleError] = useState<string | null>(null)
   const [psychEmail, setPsychEmail] = useState<string | null>(null)
 
+  // Google Calendar connection
+  const [googleConnected, setGoogleConnected] = useState<boolean | null>(null)
+  const [googleStatusLoading, setGoogleStatusLoading] = useState(true)
+  const [disconnecting, setDisconnecting] = useState(false)
+  const [cancellingEvent, setCancellingEvent] = useState<string | null>(null)
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
+  const [cancelConfirmEvent, setCancelConfirmEvent] = useState<string | null>(null)
+  const [googleError, setGoogleError] = useState<string | null>(null)
+
   // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -198,7 +211,14 @@ const PsychologistDashboard: React.FC = () => {
       const data = await apiService.getRequestedMeetings(user.id)
       setRequests(data)
     } catch (err: unknown) {
-      setRequestsError(err instanceof Error ? err.message : 'Failed to load booking requests')
+      const status = (err as any)?.status
+      const message = err instanceof Error ? err.message : ''
+      if (status === 403 && (message.includes('REVOKED') || message.includes('NOT_CONNECTED'))) {
+        setGoogleConnected(false)
+        setGoogleError('Your Google account session has expired. Please reconnect.')
+      } else {
+        setRequestsError(err instanceof Error ? err.message : 'Failed to load booking requests')
+      }
     } finally {
       setRequestsLoading(false)
     }
@@ -217,16 +237,86 @@ const PsychologistDashboard: React.FC = () => {
       const meetings = await apiService.getUpcomingMeetings(email)
       setUpcomingMeetings(Array.isArray(meetings) ? meetings : [])
     } catch (err: unknown) {
-      setScheduleError(err instanceof Error ? err.message : 'Failed to load schedule')
+      const status = (err as any)?.status
+      const message = err instanceof Error ? err.message : ''
+      if (status === 403 && (message.includes('REVOKED') || message.includes('NOT_CONNECTED'))) {
+        setGoogleConnected(false)
+        setGoogleError('Your Google account session has expired. Please reconnect.')
+      } else {
+        setScheduleError(err instanceof Error ? err.message : 'Failed to load schedule')
+      }
     } finally {
       setScheduleLoading(false)
     }
   }, [user?.id])
 
+  const fetchGoogleStatus = useCallback(async () => {
+    if (!user?.id) return
+    setGoogleStatusLoading(true)
+    try {
+      const { connected } = await apiService.checkGoogleStatus(user.id)
+      setGoogleConnected(connected)
+      setGoogleError(null)
+    } catch (err: unknown) {
+      const status = (err as any)?.status
+      const message = err instanceof Error ? err.message : ''
+      if (status === 403 && (message.includes('REVOKED') || message.includes('NOT_CONNECTED'))) {
+        setGoogleConnected(false)
+        setGoogleError('Your Google account session has expired. Please reconnect.')
+      } else {
+        setGoogleConnected(null)
+      }
+    } finally {
+      setGoogleStatusLoading(false)
+    }
+  }, [user?.id])
+
+  const handleConnectGoogle = () => {
+    if (!user?.id) return
+    window.location.href = apiService.getGoogleConnectUrl(user.id)
+  }
+
+  const handleDisconnectGoogle = async () => {
+    if (!user?.id) return
+    setDisconnecting(true)
+    try {
+      await apiService.disconnectGoogle(user.id)
+      setGoogleConnected(false)
+      setShowDisconnectConfirm(false)
+    } catch (err: unknown) {
+      setGoogleError(err instanceof Error ? err.message : 'Failed to disconnect')
+    } finally {
+      setDisconnecting(false)
+    }
+  }
+
+  const handleCancelSession = async (googleEventId: string) => {
+    if (!user?.id) return
+    setCancellingEvent(googleEventId)
+    try {
+      await apiService.cancelSession(user.id, googleEventId)
+      setUpcomingMeetings(prev => prev.filter(m => m.googleEventId !== googleEventId))
+      setCancelConfirmEvent(null)
+    } catch (err: unknown) {
+      const status = (err as any)?.status
+      const message = err instanceof Error ? err.message : ''
+      if (status === 403 && (message.includes('REVOKED') || message.includes('NOT_CONNECTED'))) {
+        setGoogleConnected(false)
+        setGoogleError('Your Google account session has expired. Please reconnect.')
+      } else {
+        setScheduleError(err instanceof Error ? err.message : 'Failed to cancel session')
+        setTimeout(() => setScheduleError(null), 4000)
+      }
+    } finally {
+      setCancellingEvent(null)
+    }
+  }
+
   useEffect(() => {
+    fetchGoogleStatus()
     fetchRequests()
     fetchSchedule()
-  }, [fetchRequests, fetchSchedule])
+  }, [fetchGoogleStatus, fetchRequests, fetchSchedule])
 
   // Accept / Reject
   const handleAction = async (req: RequestedMeetingDto, action: 'accept' | 'reject') => {
@@ -240,8 +330,15 @@ const PsychologistDashboard: React.FC = () => {
       }
       setRequests(prev => prev.filter(r => r.id !== req.id))
     } catch (err: unknown) {
-      setRequestsError(err instanceof Error ? err.message : `Failed to ${action} request`)
-      setTimeout(() => setRequestsError(null), 4000)
+      const status = (err as any)?.status
+      const message = err instanceof Error ? err.message : ''
+      if (status === 403 && (message.includes('REVOKED') || message.includes('NOT_CONNECTED'))) {
+        setGoogleConnected(false)
+        setGoogleError('Your Google account session has expired. Please reconnect.')
+      } else {
+        setRequestsError(err instanceof Error ? err.message : `Failed to ${action} request`)
+        setTimeout(() => setRequestsError(null), 4000)
+      }
     } finally {
       setActionLoading(prev => ({ ...prev, [req.id]: null }))
     }
@@ -344,6 +441,24 @@ const PsychologistDashboard: React.FC = () => {
                     <p className="text-sm font-semibold text-gray-900 truncate">{psychName}</p>
                     <p className="text-xs text-gray-400 truncate">{psychEmail || user?.role || 'Psychologist'}</p>
                   </div>
+                  {googleConnected && (
+                    <button
+                      onClick={() => { setShowDisconnectConfirm(true); setIsProfileOpen(false) }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 transition-colors"
+                    >
+                      <Link2Off className="w-4 h-4" />
+                      Disconnect Google
+                    </button>
+                  )}
+                  {!googleConnected && googleConnected !== null && (
+                    <button
+                      onClick={() => { handleConnectGoogle(); setIsProfileOpen(false) }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-violet-600 hover:bg-violet-50 transition-colors"
+                    >
+                      <Link2 className="w-4 h-4" />
+                      Connect Google
+                    </button>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
@@ -368,6 +483,68 @@ const PsychologistDashboard: React.FC = () => {
             {requests.length > 0 && ` and ${requests.length} pending request${requests.length !== 1 ? 's' : ''} to review`}.
           </p>
         </div>
+
+        {/* Google token revoked / reconnect banner */}
+        <AnimatePresence>
+          {googleError && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="flex items-center justify-between bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl mb-4"
+            >
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+                <span>{googleError}</span>
+              </div>
+              <button
+                onClick={handleConnectGoogle}
+                className="ml-4 flex-shrink-0 text-xs font-semibold bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 transition-colors"
+              >
+                Reconnect
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Google Calendar not connected banner */}
+        <AnimatePresence>
+          {!googleStatusLoading && googleConnected === false && !googleError && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="flex items-center justify-between bg-violet-50 border border-violet-200 text-violet-800 text-sm px-5 py-4 rounded-xl mb-6"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Calendar className="w-5 h-5 text-violet-600" />
+                </div>
+                <div>
+                  <p className="font-semibold">Connect Google Calendar</p>
+                  <p className="text-xs text-violet-500 mt-0.5">Link your Google account to manage sessions and sync your schedule.</p>
+                </div>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={handleConnectGoogle}
+                className="flex-shrink-0 flex items-center gap-2 bg-gradient-to-r from-violet-600 to-purple-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm hover:opacity-90 transition-all"
+              >
+                <Link2 className="w-4 h-4" />
+                Connect
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Connected badge (inline with header) */}
+        {!googleStatusLoading && googleConnected === true && (
+          <div className="flex items-center gap-1.5 mb-4">
+            <span className="w-2 h-2 bg-emerald-400 rounded-full" />
+            <span className="text-xs font-medium text-emerald-600">Google Calendar connected</span>
+          </div>
+        )}
 
         {/* Global error banner */}
         <AnimatePresence>
@@ -475,7 +652,7 @@ const PsychologistDashboard: React.FC = () => {
               )}
             </section>
 
-            {/* ── Meeting History ── */}
+            {/* ── Meeting History (placeholder — API not yet implemented) ── */}
             <section>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -484,83 +661,16 @@ const PsychologistDashboard: React.FC = () => {
                   </div>
                   <h2 className="text-base font-bold text-gray-900">Meeting History</h2>
                 </div>
-                <button className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 transition-colors font-medium">
-                  View Full Logs
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {/* Table header */}
-                <div className="grid grid-cols-4 px-6 py-3 border-b border-gray-100 bg-gray-50/60">
-                  {['STUDENT', 'DATE', 'DURATION', 'ACTION'].map(h => (
-                    <span key={h} className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                      {h}
-                    </span>
-                  ))}
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center">
+                    <History className="w-6 h-6 text-gray-300" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-400">No meeting history yet</p>
+                  <p className="text-xs text-gray-300">Past sessions will appear here.</p>
                 </div>
-
-                {/* Schedule error / empty */}
-                {!scheduleLoading && (scheduleError || upcomingMeetings.length === 0) && (
-                  <div className="flex flex-col items-center justify-center py-12 gap-3">
-                    <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center">
-                      <History className="w-6 h-6 text-gray-300" />
-                    </div>
-                    <p className="text-sm font-medium text-gray-400">No meeting history yet</p>
-                    <p className="text-xs text-gray-300">Past sessions will appear here.</p>
-                  </div>
-                )}
-
-                {/* Loading */}
-                {scheduleLoading && (
-                  <div className="divide-y divide-gray-50">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="grid grid-cols-4 px-6 py-4 animate-pulse">
-                        <div className="h-3.5 bg-gray-200 rounded w-3/4" />
-                        <div className="h-3.5 bg-gray-100 rounded w-1/2" />
-                        <div className="h-3.5 bg-gray-100 rounded w-1/3" />
-                        <div className="h-3.5 bg-violet-100 rounded w-1/2" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Rows */}
-                {!scheduleLoading && !scheduleError && upcomingMeetings.length > 0 && (
-                  <div className="divide-y divide-gray-50">
-                    {upcomingMeetings.map((m, i) => {
-                      const label = meetingLabel(m)
-                      const mins = durationMins(m.startUtc, m.endUtc)
-                      return (
-                        <motion.div
-                          key={m.googleEventId || i}
-                          initial={{ opacity: 0, x: -8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.05 }}
-                          className="grid grid-cols-4 px-6 py-4 hover:bg-violet-50/30 transition-colors items-center"
-                        >
-                          <span className="text-sm font-medium text-gray-800">{label}</span>
-                          <span className="text-sm text-gray-500">{formatDate(m.startUtc)}</span>
-                          <span className="text-sm text-gray-500">{mins > 0 ? `${mins} mins` : '—'}</span>
-                          {m.meetLink ? (
-                            <a
-                              href={m.meetLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-sm text-violet-600 font-medium hover:text-violet-800 transition-colors"
-                            >
-                              Join <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
-                          ) : (
-                            <span className="text-sm text-violet-500 font-medium cursor-default">
-                              View Notes ↗
-                            </span>
-                          )}
-                        </motion.div>
-                      )
-                    })}
-                  </div>
-                )}
               </div>
             </section>
           </div>
@@ -745,25 +855,41 @@ const PsychologistDashboard: React.FC = () => {
                   </div>
                   <p className="font-bold text-white text-base mb-0.5">{meetingLabel(firstSession)}</p>
 
-                  {firstSession.meetLink ? (
-                    <a
-                      href={firstSession.meetLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-4 flex items-center justify-center gap-2 w-full bg-white text-purple-700 font-bold text-sm py-2.5 rounded-xl hover:bg-purple-50 transition-colors shadow-md"
-                    >
-                      <Video className="w-4 h-4" />
-                      Start Session
-                    </a>
-                  ) : (
-                    <button
-                      disabled
-                      className="mt-4 flex items-center justify-center gap-2 w-full bg-white/20 text-white/60 font-semibold text-sm py-2.5 rounded-xl cursor-default"
-                    >
-                      <Video className="w-4 h-4" />
-                      Start Session
-                    </button>
-                  )}
+                  <div className="mt-4 flex gap-2">
+                    {firstSession.meetLink ? (
+                      <a
+                        href={firstSession.meetLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 bg-white text-purple-700 font-bold text-sm py-2.5 rounded-xl hover:bg-purple-50 transition-colors shadow-md"
+                      >
+                        <Video className="w-4 h-4" />
+                        Start Session
+                      </a>
+                    ) : (
+                      <button
+                        disabled
+                        className="flex-1 flex items-center justify-center gap-2 bg-white/20 text-white/60 font-semibold text-sm py-2.5 rounded-xl cursor-default"
+                      >
+                        <Video className="w-4 h-4" />
+                        Start Session
+                      </button>
+                    )}
+                    {firstSession.googleEventId && (
+                      <button
+                        onClick={() => setCancelConfirmEvent(firstSession.googleEventId)}
+                        disabled={cancellingEvent === firstSession.googleEventId}
+                        className="flex items-center justify-center w-10 bg-white/10 hover:bg-red-500/30 text-purple-200 hover:text-white rounded-xl transition-colors disabled:opacity-50"
+                        title="Cancel session"
+                      >
+                        {cancellingEvent === firstSession.googleEventId ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -778,8 +904,26 @@ const PsychologistDashboard: React.FC = () => {
                       transition={{ delay: 0.05 + i * 0.06 }}
                       className="border-t border-white/10 pt-3"
                     >
-                      <p className="text-xs font-semibold text-purple-300 mb-0.5">{formatTime(m.startUtc)}</p>
-                      <p className="font-semibold text-white text-sm">{meetingLabel(m)}</p>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-xs font-semibold text-purple-300 mb-0.5">{formatTime(m.startUtc)}</p>
+                          <p className="font-semibold text-white text-sm">{meetingLabel(m)}</p>
+                        </div>
+                        {m.googleEventId && (
+                          <button
+                            onClick={() => setCancelConfirmEvent(m.googleEventId)}
+                            disabled={cancellingEvent === m.googleEventId}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-red-500/30 text-purple-300 hover:text-white transition-colors disabled:opacity-50 flex-shrink-0 mt-0.5"
+                            title="Cancel session"
+                          >
+                            {cancellingEvent === m.googleEventId ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </motion.div>
                   ))}
                 </div>
@@ -789,7 +933,97 @@ const PsychologistDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* ── Disconnect confirmation modal ── */}
+      <AnimatePresence>
+        {showDisconnectConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowDisconnectConfirm(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full mx-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Link2Off className="w-6 h-6 text-amber-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 text-center mb-2">Disconnect Google Calendar?</h3>
+              <p className="text-sm text-gray-500 text-center mb-6">
+                Your existing meetings won't be deleted from Google Calendar, but new bookings and schedule sync will stop working.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDisconnectConfirm(false)}
+                  className="flex-1 py-2.5 text-sm font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                >
+                  Keep Connected
+                </button>
+                <button
+                  onClick={handleDisconnectGoogle}
+                  disabled={disconnecting}
+                  className="flex-1 py-2.5 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {disconnecting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Disconnect
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
+      {/* ── Cancel session confirmation modal ── */}
+      <AnimatePresence>
+        {cancelConfirmEvent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            onClick={() => setCancelConfirmEvent(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl p-6 shadow-2xl max-w-sm w-full mx-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6 text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 text-center mb-2">Cancel this session?</h3>
+              <p className="text-sm text-gray-500 text-center mb-6">
+                This will remove the event from Google Calendar and notify the student. This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setCancelConfirmEvent(null)}
+                  className="flex-1 py-2.5 text-sm font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                >
+                  Keep Session
+                </button>
+                <button
+                  onClick={() => handleCancelSession(cancelConfirmEvent)}
+                  disabled={!!cancellingEvent}
+                  className="flex-1 py-2.5 text-sm font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {cancellingEvent === cancelConfirmEvent && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Cancel Session
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
